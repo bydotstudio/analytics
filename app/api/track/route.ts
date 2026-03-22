@@ -1,7 +1,10 @@
+import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { UAParser } from "ua-parser-js";
 import { pool } from "@/lib/db";
+import { ch } from "@/lib/clickhouse";
+import { computeVisitorHash, getClientIp } from "@/lib/visitor";
 
 const BOT_REGEX =
   /bot|crawl|slurp|spider|mediapartners|headless|lighthouse|prerender|wget|curl/i;
@@ -17,6 +20,12 @@ const trackSchema = z.object({
   pathname: z.string().max(500),
   referrer: z.string().max(500).optional(),
   sessionId: z.string().max(100).optional(),
+  // UTM params passed by tracker.js
+  utm_source: z.string().max(200).optional(),
+  utm_medium: z.string().max(200).optional(),
+  utm_campaign: z.string().max(200).optional(),
+  // Behavioral signals
+  type: z.enum(["pageview", "rage_click", "dead_click"]).optional(),
 });
 
 export async function OPTIONS() {
@@ -36,7 +45,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400, headers: CORS_HEADERS });
   }
 
-  const { siteId, sessionId } = parsed.data;
+  const {
+    siteId,
+    sessionId,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    type = "pageview",
+  } = parsed.data;
   let { pathname, referrer } = parsed.data;
 
   // Verify site exists
@@ -53,8 +69,8 @@ export async function POST(req: NextRequest) {
 
   // Parse UA
   const parser = new UAParser(ua);
-  const browser = parser.getBrowser().name ?? null;
-  const os = parser.getOS().name ?? null;
+  const browser = parser.getBrowser().name ?? "";
+  const os = parser.getOS().name ?? "";
   const deviceType = (() => {
     const t = parser.getDevice().type;
     if (t === "mobile") return "mobile";
@@ -67,7 +83,7 @@ export async function POST(req: NextRequest) {
     req.headers.get("x-vercel-ip-country") ??
     req.headers.get("cf-ipcountry") ??
     req.headers.get("x-country") ??
-    null;
+    "";
 
   // Sanitize pathname
   try {
@@ -88,7 +104,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Event limit: 20k events per month (page_views + custom_events)
+  // Compute server-side visitor hash (cookieless, no PII stored)
+  const ip = getClientIp(req.headers);
+  const salt = process.env.VISITOR_HASH_SALT ?? "default-salt";
+  const visitorHash = computeVisitorHash(ip, ua, salt);
+
+  // Rate limit: 20k events/month for free plan, 1M for pro.
+  // Fast check against Postgres which already has the counters in aggregate.
   const { rows: usageRows } = await pool.query<{ count: string }>(
     `SELECT (
       (SELECT COUNT(*) FROM page_views pv JOIN sites s ON s.id = pv.site_id WHERE s.user_id = $1 AND pv.timestamp >= date_trunc('month', now()))
@@ -101,11 +123,51 @@ export async function POST(req: NextRequest) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
+  // Write to Postgres (for rate-limit counting & billing — stays synchronous)
   await pool.query(
     `INSERT INTO page_views (site_id, session_id, pathname, referrer, country, device_type, browser, os)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [siteId, sessionId ?? "unknown", pathname, referrer ?? null, country, deviceType, browser, os]
+    [siteId, sessionId ?? "unknown", pathname, referrer ?? null, country || null, deviceType, browser, os]
   );
+
+  // Write to ClickHouse asynchronously after response is sent
+  const eventRow = {
+    timestamp: new Date().toISOString().replace("T", " ").replace("Z", ""),
+    site_id: siteId,
+    event_type: type,
+    session_id: sessionId ?? "unknown",
+    visitor_hash: visitorHash,
+    pathname,
+    referrer: referrer ?? "",
+    country,
+    browser,
+    os,
+    device: deviceType,
+    utm_source: utm_source ?? "",
+    utm_medium: utm_medium ?? "",
+    utm_campaign: utm_campaign ?? "",
+    event_name: "",
+    revenue: null,
+    currency: "",
+    properties: "",
+    lcp: null,
+    cls: null,
+    inp: null,
+    fcp: null,
+    ttfb: null,
+  };
+
+  after(async () => {
+    try {
+      await ch.insert({
+        table: "analytics.events",
+        values: [eventRow],
+        format: "JSONEachRow",
+      });
+    } catch {
+      // Non-critical — Postgres write already succeeded
+    }
+  });
 
   return NextResponse.json({ ok: true }, { headers: CORS_HEADERS });
 }

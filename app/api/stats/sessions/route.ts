@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
+import { getSessionList } from "@/lib/ch-queries";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -17,55 +18,38 @@ export async function GET(req: NextRequest) {
   );
   if (!sites[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { rows } = await pool.query<{
-    session_id: string;
-    country: string | null;
-    device_type: string | null;
-    browser: string | null;
-    os: string | null;
-    page_count: string;
-    started_at: string;
-    ended_at: string;
-    duration_seconds: string;
-    external_user_id: string | null;
-    traits: unknown;
-  }>(
-    `SELECT
-      pv.session_id,
-      MAX(pv.country) AS country,
-      MAX(pv.device_type) AS device_type,
-      MAX(pv.browser) AS browser,
-      MAX(pv.os) AS os,
-      COUNT(*) AS page_count,
-      MIN(pv.timestamp) AS started_at,
-      MAX(pv.timestamp) AS ended_at,
-      EXTRACT(EPOCH FROM (MAX(pv.timestamp) - MIN(pv.timestamp))) AS duration_seconds,
-      ids.external_user_id,
-      ids.traits
-     FROM page_views pv
-     LEFT JOIN identified_sessions ids
-            ON ids.site_id = pv.site_id AND ids.session_id = pv.session_id
-     WHERE pv.site_id = $1
-       AND pv.timestamp >= now() - interval '7 days'
-     GROUP BY pv.session_id, ids.external_user_id, ids.traits
-     ORDER BY started_at DESC
-     LIMIT $2`,
-    [siteId, limit]
-  );
+  const rows = await getSessionList(siteId, limit);
+
+  // Enrich with identification data from Postgres
+  const sessionIds = rows.map((r) => r.session_id);
+  let identMap: Record<string, { external_user_id: string; traits: unknown }> = {};
+  if (sessionIds.length > 0) {
+    const { rows: ids } = await pool.query<{
+      session_id: string;
+      external_user_id: string;
+      traits: unknown;
+    }>(
+      `SELECT session_id, external_user_id, traits
+       FROM identified_sessions
+       WHERE site_id = $1 AND session_id = ANY($2::text[])`,
+      [siteId, sessionIds]
+    );
+    identMap = Object.fromEntries(ids.map((r) => [r.session_id, r]));
+  }
 
   return NextResponse.json(
     rows.map((r) => ({
       session_id: r.session_id,
-      country: r.country,
-      device_type: r.device_type,
-      browser: r.browser,
-      os: r.os,
+      country: r.country || null,
+      device_type: r.device_type || null,
+      browser: r.browser || null,
+      os: r.os || null,
       page_count: Number(r.page_count),
       started_at: r.started_at,
       ended_at: r.ended_at,
       duration_seconds: Number(r.duration_seconds),
-      external_user_id: r.external_user_id,
-      traits: r.traits,
+      external_user_id: identMap[r.session_id]?.external_user_id ?? null,
+      traits: identMap[r.session_id]?.traits ?? null,
     }))
   );
 }

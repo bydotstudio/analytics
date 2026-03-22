@@ -6,13 +6,15 @@ export async function getSummaryStats(siteId: string): Promise<SummaryStats> {
     `SELECT
       COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= date_trunc('day', now())) AS today,
       COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= now() - interval '7 days')  AS last_7d,
-      COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= now() - interval '30 days') AS last_30d
+      COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= now() - interval '30 days') AS last_30d,
+      (SELECT country FROM page_views WHERE site_id = $1 AND timestamp >= now() - interval '30 days' AND country IS NOT NULL GROUP BY country ORDER BY COUNT(*) DESC LIMIT 1) AS top_country,
+      (SELECT referrer FROM page_views WHERE site_id = $1 AND timestamp >= now() - interval '30 days' AND referrer IS NOT NULL AND referrer != '' GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) AS top_referrer
      FROM page_views
      WHERE site_id = $1 AND timestamp >= now() - interval '30 days'`,
     [siteId]
   );
   const r = rows[0];
-  return { today: Number(r.today), last_7d: Number(r.last_7d), last_30d: Number(r.last_30d) };
+  return { today: Number(r.today), last_7d: Number(r.last_7d), last_30d: Number(r.last_30d), top_country: r.top_country ?? null, top_referrer: r.top_referrer ?? null };
 }
 
 export async function getActiveVisitors(siteId: string): Promise<number> {

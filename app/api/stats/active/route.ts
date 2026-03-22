@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
+import { getActiveVisitors } from "@/lib/ch-queries";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -15,11 +16,6 @@ export async function GET(req: NextRequest) {
   );
   if (!sites[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { rows } = await pool.query(
-    `SELECT COUNT(DISTINCT session_id) AS active
-     FROM page_views
-     WHERE site_id = $1 AND timestamp >= now() - interval '5 minutes'`,
-    [siteId]
-  );
-  return NextResponse.json({ active: Number(rows[0]?.active ?? 0) });
+  const active = await getActiveVisitors(siteId);
+  return NextResponse.json({ active });
 }

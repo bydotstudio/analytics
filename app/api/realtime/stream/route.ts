@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
+import { getRecentEvents } from "@/lib/ch-queries";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -19,7 +20,8 @@ export async function GET(req: NextRequest) {
 
   const stream = new ReadableStream({
     start(controller) {
-      let lastChecked = new Date();
+      // Cursor: last event timestamp we've seen (millisecond precision)
+      let lastChecked = new Date().toISOString().replace("T", " ").replace("Z", "");
       let heartbeatCount = 0;
 
       const interval = setInterval(async () => {
@@ -30,20 +32,15 @@ export async function GET(req: NextRequest) {
         }
 
         try {
-          const { rows } = await pool.query<{
-            pathname: string;
-            country: string | null;
-            timestamp: string;
-          }>(
-            `SELECT pathname, country, timestamp
-             FROM page_views
-             WHERE site_id = $1 AND timestamp > $2
-             ORDER BY timestamp ASC
-             LIMIT 20`,
-            [siteId, lastChecked]
-          );
+          const rows = await getRecentEvents(siteId, lastChecked);
 
-          lastChecked = new Date();
+          // Advance cursor to the latest event we just read
+          if (rows.length > 0) {
+            lastChecked = rows[rows.length - 1].timestamp;
+          } else {
+            // No new events — advance cursor to now so we don't re-scan
+            lastChecked = new Date().toISOString().replace("T", " ").replace("Z", "");
+          }
 
           for (const row of rows) {
             controller.enqueue(
@@ -51,13 +48,12 @@ export async function GET(req: NextRequest) {
             );
           }
 
-          // Heartbeat every ~15s (every 7-8 polls at 2s interval)
           heartbeatCount++;
           if (heartbeatCount % 8 === 0) {
             controller.enqueue(encoder.encode(`event: heartbeat\ndata: {}\n\n`));
           }
         } catch {
-          // Ignore transient DB errors — keep the stream alive
+          // Ignore transient errors — keep the stream alive
         }
       }, 2000);
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
+import { getDeviceBreakdown } from "@/lib/ch-queries";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -15,12 +16,5 @@ export async function GET(req: NextRequest) {
   );
   if (!sites[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { rows } = await pool.query(
-    `SELECT COALESCE(device_type, 'unknown') AS label, COUNT(DISTINCT session_id) AS visitors
-     FROM page_views
-     WHERE site_id = $1 AND timestamp >= now() - interval '30 days'
-     GROUP BY device_type ORDER BY visitors DESC`,
-    [siteId]
-  );
-  return NextResponse.json(rows.map((r) => ({ label: r.label, visitors: Number(r.visitors) })));
+  return NextResponse.json(await getDeviceBreakdown(siteId));
 }

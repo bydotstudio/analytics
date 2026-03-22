@@ -7,7 +7,7 @@ import { Globe, ChevronDown, Settings, Plus } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { DashboardModeProvider, useDashboardMode } from "@/contexts/dashboard-mode";
 import ModeToggle from "@/components/dashboard/ModeToggle";
-import type { Site } from "@/types/analytics";
+import type { Site, ViewMode } from "@/types/analytics";
 
 interface UsageData {
   plan: string;
@@ -88,7 +88,7 @@ function SiteSelector({
 // ── User avatar with dropdown ─────────────────────────────────────────────────
 
 function UserAvatar({ isPro }: { isPro: boolean }) {
-  const [user, setUser] = useState<{ name?: string; email?: string; image?: string } | null>(null);
+  const [user, setUser] = useState<{ name?: string; email?: string; image?: string | null } | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -179,6 +179,14 @@ function DashboardHeader({
   isPro: boolean;
 }) {
   const { mode, setMode } = useDashboardMode();
+  const router = useRouter();
+
+  function handleToggle(next: ViewMode) {
+    setMode(next);
+    if (next === "simple" && selectedSiteId) {
+      router.push(`/dashboard/${selectedSiteId}`);
+    }
+  }
 
   return (
     <header className="sticky top-0 z-10 border-b border-[#0f0f0f] flex items-center justify-between px-4 py-2 sm:px-6 sm:py-3 md:px-8 md:py-4 lg:px-12 lg:py-6 xl:px-16 xl:py-8">
@@ -188,7 +196,7 @@ function DashboardHeader({
           <img src="/logo.svg" alt="Analytics" className="h-5 invert" />
         </Link>
         <div className="flex items-center gap-3">
-          <ModeToggle mode={mode} onToggle={setMode} />
+          <ModeToggle mode={mode} onToggle={handleToggle} />
           <SiteSelector
             sites={sites}
             selectedSiteId={selectedSiteId}
@@ -322,12 +330,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         )}
 
-        <main className="w-full flex-1 px-4 py-6 sm:px-6 md:px-8 lg:px-12 xl:px-16">{children}</main>
+        <main className="flex w-full flex-1 flex-col px-4 pt-6 pb-16 sm:px-6 md:px-8 lg:px-12 xl:px-16">{children}</main>
 
         {showAddSite && (
           <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="modal-card w-full max-w-md rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
-              <h2 className="mb-4 text-lg font-semibold text-white">Add a site</h2>
+            <div className="modal-card w-full max-w-md rounded-[24px] bg-white/[0.04] p-10 shadow-2xl backdrop-blur-sm">
+              <h2 className="mb-6 text-xl text-white">Add a site</h2>
               <form onSubmit={handleAddSite} className="space-y-3">
                 <input
                   type="text"
@@ -368,8 +376,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {embedSite && (
           <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="modal-card w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
-              <h2 className="mb-2 text-lg font-semibold text-white">Embed snippet</h2>
+            <div className="modal-card w-full max-w-lg rounded-[24px] bg-white/[0.04] p-10 shadow-2xl backdrop-blur-sm">
+              <h2 className="mb-2 text-xl text-white">Embed snippet</h2>
               <p className="mb-3 text-sm text-white/50">
                 Add this to the <code className="text-white/70">&lt;head&gt;</code> of your site:
               </p>

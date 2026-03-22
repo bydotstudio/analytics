@@ -23,13 +23,42 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      clickhouse:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://analytics:${DB_PASSWORD}@db:5432/analytics
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_DB: analytics
+      VISITOR_HASH_SALT: ${VISITOR_HASH_SALT}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       NEXT_PUBLIC_APP_URL: ${APP_URL}
       POLAR_ACCESS_TOKEN: ${POLAR_ACCESS_TOKEN}
       POLAR_PRODUCT_ID: ${POLAR_PRODUCT_ID}
       POLAR_WEBHOOK_SECRET: ${POLAR_WEBHOOK_SECRET}
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: analytics
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./scripts/clickhouse-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   caddy:
     image: caddy:2-alpine
@@ -46,5 +75,6 @@ services:
 
 volumes:
   postgres_data:
+  clickhouse_data:
   caddy_data:
   caddy_config:

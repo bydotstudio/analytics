@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
+import { getPerformanceMetrics } from "@/lib/ch-queries";
 
 type Grade = "A+" | "A" | "B" | "C" | "D" | "F";
 
@@ -20,7 +21,6 @@ function overallGrade(grades: Grade[]): Grade {
   }, "A+" as Grade);
 }
 
-// Thresholds: [A+, A, B, C, D] — anything above last = F
 const LCP_T  = [1200, 2500, 3000, 4000, 6000];
 const CLS_T  = [0.05, 0.10, 0.15, 0.25, 0.35];
 const INP_T  = [100,  200,  300,  500,  700];
@@ -40,30 +40,7 @@ export async function GET(req: NextRequest) {
   );
   if (!sites[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { rows } = await pool.query<{
-    pathname: string;
-    samples: string;
-    avg_lcp: number | null;
-    avg_cls: number | null;
-    avg_inp: number | null;
-    avg_fcp: number | null;
-    avg_ttfb: number | null;
-  }>(
-    `SELECT
-      pathname,
-      COUNT(*) AS samples,
-      AVG(lcp)::real AS avg_lcp,
-      AVG(cls)::real AS avg_cls,
-      AVG(inp)::real AS avg_inp,
-      AVG(fcp)::real AS avg_fcp,
-      AVG(ttfb)::real AS avg_ttfb
-     FROM performance_metrics
-     WHERE site_id = $1 AND timestamp >= now() - interval '30 days'
-     GROUP BY pathname
-     ORDER BY samples DESC
-     LIMIT 20`,
-    [siteId]
-  );
+  const rows = await getPerformanceMetrics(siteId);
 
   return NextResponse.json(
     rows.map((r) => {

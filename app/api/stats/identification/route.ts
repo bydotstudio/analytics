@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
+import { getSessionCount30d } from "@/lib/ch-queries";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -15,31 +16,22 @@ export async function GET(req: NextRequest) {
   );
   if (!sites[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { rows } = await pool.query<{
-    total_sessions: string;
-    identified_sessions: string;
-  }>(
-    `WITH sessions AS (
-       SELECT DISTINCT session_id FROM page_views
-       WHERE site_id = $1 AND timestamp >= now() - interval '30 days'
-     )
-     SELECT
-       COUNT(*) AS total_sessions,
-       COUNT(ids.session_id) AS identified_sessions
-     FROM sessions s
-     LEFT JOIN identified_sessions ids
-            ON ids.site_id = $1 AND ids.session_id = s.session_id`,
-    [siteId]
-  );
+  const [total, identRows] = await Promise.all([
+    getSessionCount30d(siteId),
+    pool.query<{ count: string }>(
+      `SELECT COUNT(DISTINCT session_id) AS count
+       FROM identified_sessions
+       WHERE site_id = $1`,
+      [siteId]
+    ),
+  ]);
 
-  const row = rows[0] ?? { total_sessions: "0", identified_sessions: "0" };
-  const total = Number(row.total_sessions);
-  const identified = Number(row.identified_sessions);
+  const identified = Number(identRows.rows[0]?.count ?? 0);
 
   return NextResponse.json({
     total_sessions: total,
     identified_sessions: identified,
-    anonymous_sessions: total - identified,
+    anonymous_sessions: Math.max(0, total - identified),
     identification_rate: total > 0 ? Math.round((identified / total) * 1000) / 10 : 0,
   });
 }
