@@ -5,6 +5,8 @@ import { UAParser } from "ua-parser-js";
 import { pool } from "@/lib/db";
 import { ch } from "@/lib/clickhouse";
 import { computeVisitorHash, getClientIp } from "@/lib/visitor";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getCountry } from "@/lib/geo";
 
 const BOT_REGEX =
   /bot|crawl|slurp|spider|mediapartners|headless|lighthouse|prerender|wget|curl/i;
@@ -55,9 +57,21 @@ export async function POST(req: NextRequest) {
   } = parsed.data;
   let { pathname, referrer } = parsed.data;
 
-  // Verify site exists
-  const { rows } = await pool.query<{ id: string; domain: string; user_id: string }>(
-    "SELECT id, domain, user_id FROM sites WHERE id = $1",
+  // IP rate limit — must come before site lookup to protect against amplification
+  const ip = getClientIp(req.headers);
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) {
+    return new Response(null, {
+      status: 429,
+      headers: { ...CORS_HEADERS, "Retry-After": String(rl.retryAfter) },
+    });
+  }
+
+  // Verify site exists (join user plan for limit check)
+  const { rows } = await pool.query<{ id: string; domain: string; user_id: string; plan: string }>(
+    `SELECT s.id, s.domain, s.user_id, u.plan
+     FROM sites s JOIN "user" u ON u.id = s.user_id
+     WHERE s.id = $1`,
     [siteId]
   );
   const site = rows[0];
@@ -78,12 +92,12 @@ export async function POST(req: NextRequest) {
     return "desktop";
   })();
 
-  // Country from hosting/proxy headers
+  // Country: prefer headers from Cloudflare/Vercel, fall back to GeoLite2
   const country =
-    req.headers.get("x-vercel-ip-country") ??
     req.headers.get("cf-ipcountry") ??
+    req.headers.get("x-vercel-ip-country") ??
     req.headers.get("x-country") ??
-    "";
+    (await getCountry(ip));
 
   // Sanitize pathname
   try {
@@ -105,12 +119,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Compute server-side visitor hash (cookieless, no PII stored)
-  const ip = getClientIp(req.headers);
   const salt = process.env.VISITOR_HASH_SALT ?? "default-salt";
   const visitorHash = computeVisitorHash(ip, ua, salt);
 
-  // Rate limit: 20k events/month for free plan, 1M for pro.
-  // Fast check against Postgres which already has the counters in aggregate.
+  // Monthly event quota: 20k for free, 1M for pro
+  const eventLimit = site.plan === "pro" ? 1_000_000 : 20_000;
   const { rows: usageRows } = await pool.query<{ count: string }>(
     `SELECT (
       (SELECT COUNT(*) FROM page_views pv JOIN sites s ON s.id = pv.site_id WHERE s.user_id = $1 AND pv.timestamp >= date_trunc('month', now()))
@@ -119,7 +132,7 @@ export async function POST(req: NextRequest) {
     ) AS count`,
     [site.user_id]
   );
-  if (parseInt(usageRows[0].count) >= 20000) {
+  if (parseInt(usageRows[0].count) >= eventLimit) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 

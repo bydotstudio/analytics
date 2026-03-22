@@ -51,8 +51,8 @@ export default function SettingsPage() {
       <h1 className="text-sm font-semibold text-white/60">Settings</h1>
 
       {/* Billing */}
-      <section className="rounded-xl border border-white/[0.06] bg-zinc-900 p-6">
-        <h2 className="mb-4 text-sm font-semibold text-white/70">Billing</h2>
+      <section className="rounded-[24px] bg-white/[0.04] p-10">
+        <h2 className="mb-6 text-xl text-white">Billing</h2>
         {usage && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -99,8 +99,8 @@ export default function SettingsPage() {
       </section>
 
       {/* Sites */}
-      <section className="rounded-xl border border-white/[0.06] bg-zinc-900 p-6">
-        <h2 className="mb-4 text-sm font-semibold text-white/70">Sites</h2>
+      <section className="rounded-[24px] bg-white/[0.04] p-10">
+        <h2 className="mb-6 text-xl text-white">Sites</h2>
         {sites.length === 0 ? (
           <div className="py-8 text-center">
             <p className="mb-4 text-sm text-white/30">No sites added yet.</p>
@@ -154,8 +154,8 @@ export default function SettingsPage() {
       </section>
 
       {/* Account */}
-      <section className="rounded-xl border border-white/[0.06] bg-zinc-900 p-6">
-        <h2 className="mb-4 text-sm font-semibold text-white/70">Account</h2>
+      <section className="rounded-[24px] bg-white/[0.04] p-10">
+        <h2 className="mb-6 text-xl text-white">Account</h2>
         <button
           onClick={async () => {
             await authClient.signOut();

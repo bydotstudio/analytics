@@ -24,7 +24,7 @@ export default function AdvancedView({ siteId }: { siteId: string }) {
     <motion.div
       animate={{ opacity: transitioning ? 0.45 : 1 }}
       transition={{ duration: 0.15 }}
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+      className="grid grid-cols-1 gap-8 sm:grid-cols-2"
     >
       <BreakdownTable title="Top Pages" rows={pages.data ?? []} loading={pages.isLoading} />
       <BreakdownTable title="Referrers" rows={referrers.data ?? []} loading={referrers.isLoading} />

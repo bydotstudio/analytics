@@ -34,7 +34,8 @@ export default function PerformanceTable({ siteId }: { siteId: string }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-zinc-900">
+    <div className="overflow-hidden rounded-[24px] bg-white/[0.04]">
+    <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/[0.06]">
@@ -66,6 +67,7 @@ export default function PerformanceTable({ siteId }: { siteId: string }) {
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

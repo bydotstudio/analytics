@@ -4,20 +4,19 @@ import { motion } from "motion/react";
 import { useSummaryStats } from "@/hooks/useStats";
 import { useActiveVisitors } from "@/hooks/useActiveVisitors";
 import StatCard from "./StatCard";
-import PrivacyBadge from "./PrivacyBadge";
 
-export default function SimpleView({ siteId }: { siteId: string }) {
+export default function SimpleView({ siteId, fillHeight }: { siteId: string; fillHeight?: boolean }) {
   const { data, isLoading, isFetching } = useSummaryStats(siteId);
   const { data: activeData } = useActiveVisitors(siteId);
   const transitioning = isFetching && !isLoading;
   const active = activeData?.active ?? 0;
 
   return (
-    <div className="space-y-3">
+    <div className={fillHeight ? "flex flex-1 flex-col" : ""}>
       <motion.div
         animate={{ opacity: transitioning ? 0.45 : 1 }}
         transition={{ duration: 0.15 }}
-        className="grid grid-cols-2 gap-8"
+        className={`grid grid-cols-2 grid-rows-3 ${fillHeight ? "flex-1 gap-8" : "min-h-[780px] gap-8"}`}
       >
         <StatCard label="Today" value={data?.today ?? 0} loading={isLoading} />
         <StatCard label="Active now" value={active} live />
@@ -35,7 +34,6 @@ export default function SimpleView({ siteId }: { siteId: string }) {
           loading={isLoading}
         />
       </motion.div>
-      <PrivacyBadge />
     </div>
   );
 }

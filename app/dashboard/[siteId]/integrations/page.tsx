@@ -56,9 +56,9 @@ function IntegrationCard({ title, badge, connected, webhookUrl, secretLabel, sec
   steps: string[];
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-6">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="text-base font-semibold text-white">{title}</span>
+    <div className="rounded-[24px] bg-white/[0.04] p-10">
+      <div className="mb-6 flex items-center gap-3">
+        <span className="text-xl text-white">{title}</span>
         <span className={`rounded-full px-2 py-0.5 text-xs ${connected ? "bg-emerald-500/15 text-emerald-400" : "bg-white/[0.06] text-white/40"}`}>
           {badge}
         </span>
@@ -166,8 +166,8 @@ export default function IntegrationsPage({
         />
       </div>
 
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-        <p className="mb-2 text-sm font-semibold text-white/70">Or track manually from your frontend</p>
+      <div className="rounded-[24px] bg-white/[0.04] p-10">
+        <p className="mb-2 text-xl text-white">Or track manually from your frontend</p>
         <p className="mb-3 text-xs text-white/40">Call after any successful payment — works with any provider:</p>
         <pre className="overflow-x-auto rounded-lg bg-white/[0.05] p-3 text-xs text-white/60">{`// After payment succeeds
 analytics.track('purchase', { revenue: 49.99, currency: 'USD' })

@@ -34,9 +34,9 @@ export default function SessionList({ siteId }: { siteId: string }) {
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900">
-        <div className="border-b border-white/[0.06] px-5 py-3">
-          <h3 className="text-sm font-semibold text-white/70">Recent Sessions (7d)</h3>
+      <div className="overflow-hidden rounded-[24px] bg-white/[0.04]">
+        <div className="border-b border-white/[0.06] px-10 py-6">
+          <h3 className="text-xl text-white">Recent Sessions (7d)</h3>
         </div>
 
         {isLoading ? (
@@ -46,7 +46,7 @@ export default function SessionList({ siteId }: { siteId: string }) {
             ))}
           </div>
         ) : !sessions?.length ? (
-          <p className="p-5 text-sm text-white/30">No sessions in the last 7 days.</p>
+          <p className="px-10 py-6 text-sm text-white/30">No sessions in the last 7 days.</p>
         ) : (
           <ul>
             {sessions.map((s) => (

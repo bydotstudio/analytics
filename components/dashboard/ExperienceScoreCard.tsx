@@ -20,8 +20,8 @@ export default function ExperienceScoreCard({ siteId }: { siteId: string }) {
   const { data, isLoading } = useSitePerformance(siteId);
 
   return (
-    <div className={`rounded-xl border bg-zinc-900 p-5 ${data ? gradeBorder(data.overall_score) : "border-white/[0.06]"}`}>
-      <p className="mb-2 text-sm font-semibold text-white/70">Experience Score</p>
+    <div className="rounded-[24px] bg-white/[0.04] p-10">
+      <p className="mb-4 text-xl text-white">Experience Score</p>
       {isLoading ? (
         <Skeleton className="h-16 w-20" />
       ) : !data?.overall_score || data.avg_lcp === null ? (

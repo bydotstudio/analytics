@@ -20,6 +20,8 @@ services:
   app:
     build: .
     restart: unless-stopped
+    volumes:
+      - ./GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb:ro
     depends_on:
       db:
         condition: service_healthy
@@ -35,6 +37,10 @@ services:
       POLAR_ACCESS_TOKEN: ${POLAR_ACCESS_TOKEN}
       POLAR_PRODUCT_ID: ${POLAR_PRODUCT_ID}
       POLAR_WEBHOOK_SECRET: ${POLAR_WEBHOOK_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM: ${RESEND_FROM}
+      CRON_SECRET: ${CRON_SECRET}
+      MAXMIND_DB_PATH: /app/GeoLite2-Country.mmdb
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8

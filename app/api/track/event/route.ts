@@ -5,6 +5,8 @@ import { UAParser } from "ua-parser-js";
 import { pool } from "@/lib/db";
 import { ch } from "@/lib/clickhouse";
 import { computeVisitorHash, getClientIp } from "@/lib/visitor";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getCountry } from "@/lib/geo";
 
 const BOT_REGEX =
   /bot|crawl|slurp|spider|mediapartners|headless|lighthouse|prerender|wget|curl/i;
@@ -58,9 +60,19 @@ export async function POST(req: NextRequest) {
   } = parsed.data;
   let { pathname } = parsed.data;
 
-  // Verify site exists
-  const { rows } = await pool.query<{ user_id: string }>(
-    "SELECT user_id FROM sites WHERE id = $1",
+  // IP rate limit
+  const ip = getClientIp(req.headers);
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) {
+    return new Response(null, {
+      status: 429,
+      headers: { ...CORS_HEADERS, "Retry-After": String(rl.retryAfter) },
+    });
+  }
+
+  // Verify site exists (join user plan for quota check)
+  const { rows } = await pool.query<{ user_id: string; plan: string }>(
+    `SELECT s.user_id, u.plan FROM sites s JOIN "user" u ON u.id = s.user_id WHERE s.id = $1`,
     [siteId]
   );
   const site = rows[0];
@@ -79,7 +91,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Usage limit
+  // Monthly event quota: 20k for free, 1M for pro
+  const eventLimit = site.plan === "pro" ? 1_000_000 : 20_000;
   const { rows: usageRows } = await pool.query<{ count: string }>(
     `SELECT (
       (SELECT COUNT(*) FROM page_views pv JOIN sites s ON s.id = pv.site_id WHERE s.user_id = $1 AND pv.timestamp >= date_trunc('month', now()))
@@ -88,7 +101,7 @@ export async function POST(req: NextRequest) {
     ) AS count`,
     [site.user_id]
   );
-  if (parseInt(usageRows[0].count) >= 20000) {
+  if (parseInt(usageRows[0].count) >= eventLimit) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
@@ -108,16 +121,15 @@ export async function POST(req: NextRequest) {
   );
 
   // Compute visitor hash for ClickHouse row
-  const ip = getClientIp(req.headers);
   const salt = process.env.VISITOR_HASH_SALT ?? "default-salt";
   const visitorHash = computeVisitorHash(ip, ua, salt);
 
   const parser = new UAParser(ua);
   const country =
-    req.headers.get("x-vercel-ip-country") ??
     req.headers.get("cf-ipcountry") ??
+    req.headers.get("x-vercel-ip-country") ??
     req.headers.get("x-country") ??
-    "";
+    (await getCountry(ip));
 
   after(async () => {
     try {

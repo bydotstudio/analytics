@@ -11,8 +11,8 @@ export default function BreakdownTable({ title, rows, loading }: BreakdownTableP
   const max = rows[0]?.visitors ?? 1;
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-      <h3 className="mb-4 text-sm font-semibold text-white/70">{title}</h3>
+    <div className="rounded-[24px] bg-white/[0.04] p-10">
+      <h3 className="mb-4 text-xl text-white">{title}</h3>
       {loading ? (
         <div className="space-y-2">
           {[90, 72, 58, 44, 32].map((w, i) => (

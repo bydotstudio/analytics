@@ -10,8 +10,8 @@ function EventsTable({ siteId }: { siteId: string }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-white/70">Top Events</h3>
+      <div className="rounded-[24px] bg-white/[0.04] p-10">
+        <h3 className="mb-6 text-xl text-white">Top Events</h3>
         {isLoading ? (
           <div className="space-y-2">
             {[90, 72, 58].map((w, i) => <Skeleton key={i} className="h-7" style={{ width: `${w}%` }} />)}
@@ -33,8 +33,8 @@ function EventsTable({ siteId }: { siteId: string }) {
         )}
       </div>
 
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-white/70">Top Converting Pages</h3>
+      <div className="rounded-[24px] bg-white/[0.04] p-10">
+        <h3 className="mb-6 text-xl text-white">Top Converting Pages</h3>
         {isLoading ? (
           <div className="space-y-2">
             {[90, 72, 58].map((w, i) => <Skeleton key={i} className="h-7" style={{ width: `${w}%` }} />)}
@@ -70,8 +70,8 @@ export default function EventsPage({
     <div className="space-y-6">
       <RevenueStatCards siteId={siteId} />
       <EventsTable siteId={siteId} />
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-        <p className="mb-2 text-sm font-semibold text-white/70">Track custom events</p>
+      <div className="rounded-[24px] bg-white/[0.04] p-10">
+        <p className="mb-2 text-xl text-white">Track custom events</p>
         <p className="mb-3 text-xs text-white/40">Call from anywhere on your site after the tracker is loaded:</p>
         <pre className="overflow-x-auto rounded-lg bg-white/[0.05] p-3 text-xs text-white/60">{`// Simple event
 analytics.track('signup')

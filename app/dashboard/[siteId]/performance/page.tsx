@@ -23,8 +23,8 @@ export default function PerformancePage({
     <div className="space-y-6">
       <ExperienceScoreCard siteId={siteId} />
       <PerformanceTable siteId={siteId} />
-      <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-        <h3 className="mb-3 text-sm font-semibold text-white/70">Metric reference</h3>
+      <div className="rounded-[24px] bg-white/[0.04] p-10">
+        <h3 className="mb-6 text-xl text-white">Metric reference</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
           {metrics.map((m) => (
             <div key={m.name}>

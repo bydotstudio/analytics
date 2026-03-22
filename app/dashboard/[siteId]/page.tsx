@@ -3,7 +3,6 @@
 import { Suspense, lazy } from "react";
 import { useDashboardMode } from "@/contexts/dashboard-mode";
 import SimpleView from "@/components/dashboard/SimpleView";
-import ActiveBadge from "@/components/dashboard/ActiveBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { use } from "react";
 
@@ -18,12 +17,8 @@ export default function SiteDashboard({
   const { mode } = useDashboardMode();
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <ActiveBadge siteId={siteId} />
-      </div>
-
-      <SimpleView siteId={siteId} />
+    <div className="flex flex-1 flex-col gap-8">
+      <SimpleView siteId={siteId} fillHeight={mode === "simple"} />
 
       {mode === "advanced" && (
         <Suspense

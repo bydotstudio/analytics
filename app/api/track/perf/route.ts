@@ -4,6 +4,8 @@ import { z } from "zod";
 import { pool } from "@/lib/db";
 import { ch } from "@/lib/clickhouse";
 import { computeVisitorHash, getClientIp } from "@/lib/visitor";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getCountry } from "@/lib/geo";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -44,6 +46,16 @@ export async function POST(req: NextRequest) {
   const { siteId, sessionId, lcp, cls, inp, fcp, ttfb } = parsed.data;
   let { pathname } = parsed.data;
 
+  // IP rate limit
+  const ip = getClientIp(req.headers);
+  const rl = checkRateLimit(ip);
+  if (!rl.allowed) {
+    return new Response(null, {
+      status: 429,
+      headers: { ...CORS_HEADERS, "Retry-After": String(rl.retryAfter) },
+    });
+  }
+
   // Verify site exists
   const { rows } = await pool.query("SELECT id FROM sites WHERE id = $1", [siteId]);
   if (!rows[0]) return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -62,14 +74,13 @@ export async function POST(req: NextRequest) {
   );
 
   const ua = req.headers.get("user-agent") ?? "";
-  const ip = getClientIp(req.headers);
   const salt = process.env.VISITOR_HASH_SALT ?? "default-salt";
   const visitorHash = computeVisitorHash(ip, ua, salt);
   const country =
-    req.headers.get("x-vercel-ip-country") ??
     req.headers.get("cf-ipcountry") ??
+    req.headers.get("x-vercel-ip-country") ??
     req.headers.get("x-country") ??
-    "";
+    (await getCountry(ip));
 
   after(async () => {
     try {

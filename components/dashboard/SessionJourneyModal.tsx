@@ -30,7 +30,7 @@ export default function SessionJourneyModal({ siteId, session, onClose }: Props)
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-[24px] bg-white/[0.04] p-10 shadow-2xl backdrop-blur-sm">
         <div className="mb-4 flex items-start justify-between">
           <div>
             <p className="font-semibold text-white">

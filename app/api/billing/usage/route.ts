@@ -23,10 +23,14 @@ export async function GET(req: NextRequest) {
     ),
   ]);
 
+  const plan = userResult.rows[0]?.plan ?? "free";
   return NextResponse.json({
-    plan: userResult.rows[0]?.plan ?? "free",
+    plan,
     sites: parseInt(sitesResult.rows[0].count),
     events_this_month: parseInt(eventsResult.rows[0].count),
-    limits: { sites: 5, events_per_month: 20000 },
+    limits: {
+      sites: plan === "pro" ? null : 5,
+      events_per_month: plan === "pro" ? 1_000_000 : 20_000,
+    },
   });
 }

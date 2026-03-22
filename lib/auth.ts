@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { polar, checkout, portal, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
 import { pool } from "./db";
+import { sendVerificationEmail, sendPasswordResetEmail } from "./email";
 
 // Resolve a Better Auth user ID from a Polar customer object.
 // Tries in order: externalId → polarCustomerId column → email.
@@ -44,7 +45,15 @@ const polarClient = new Polar({
 
 export const auth = betterAuth({
   database: pool,
-  emailAndPassword: { enabled: true },
+  emailAndPassword: {
+    enabled: true,
+    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+      await sendVerificationEmail(user.email, url);
+    },
+    sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
+      await sendPasswordResetEmail(user.email, url);
+    },
+  },
   trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"],
   plugins: [
     polar({

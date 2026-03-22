@@ -7,8 +7,8 @@ export default function IdentificationCard({ siteId }: { siteId: string }) {
   const { data, isLoading } = useIdentificationStats(siteId);
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-      <h3 className="mb-4 text-sm font-semibold text-white/70">User Identification</h3>
+    <div className="rounded-[24px] bg-white/[0.04] p-10">
+      <h3 className="mb-6 text-xl text-white">User Identification</h3>
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-7 w-3/4" />

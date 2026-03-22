@@ -24,7 +24,7 @@ export default function StatCard({ label, value, loading, live, flagCode }: Stat
   const displayed = typeof value === "number" ? value.toLocaleString() : String(value);
 
   return (
-    <div className="relative flex min-h-[180px] flex-col justify-between overflow-hidden rounded-[24px] bg-white/[0.04] p-10">
+    <div className="relative flex h-full flex-col justify-between overflow-hidden rounded-[24px] bg-white/[0.04] p-10">
       {/* Label */}
       <div className="flex items-center gap-3">
         <p className="text-xl text-white">{label}</p>

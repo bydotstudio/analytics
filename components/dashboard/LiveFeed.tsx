@@ -23,9 +23,9 @@ export default function LiveFeed({ siteId }: { siteId: string }) {
   const { events, connected } = useRealtimeFeed(siteId);
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-white/70">Live feed</h3>
+    <div className="rounded-[24px] bg-white/[0.04] p-10">
+      <div className="mb-6 flex items-center gap-2">
+        <h3 className="text-xl text-white">Live feed</h3>
         <span className="flex items-center gap-1.5 text-xs text-white/30">
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-white/20"}`} />
           {connected ? "Connected" : "Reconnecting…"}

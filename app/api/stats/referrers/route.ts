@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { pool } from "@/lib/db";
+import { verifySiteOwnership } from "@/lib/db";
 import { getTopReferrers } from "@/lib/ch-queries";
 
 export async function GET(req: NextRequest) {
@@ -10,11 +10,9 @@ export async function GET(req: NextRequest) {
   const siteId = req.nextUrl.searchParams.get("siteId");
   if (!siteId) return NextResponse.json({ error: "siteId required" }, { status: 400 });
 
-  const { rows: sites } = await pool.query(
-    "SELECT id FROM sites WHERE id = $1 AND user_id = $2",
-    [siteId, session.user.id]
-  );
-  if (!sites[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // SECURITY: siteId verified against session.user.id before ClickHouse call
+  if (!(await verifySiteOwnership(siteId, session.user.id)))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json(await getTopReferrers(siteId));
 }

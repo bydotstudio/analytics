@@ -128,3 +128,15 @@ CREATE TABLE IF NOT EXISTS performance_metrics (
 CREATE INDEX IF NOT EXISTS pm_site_ts_idx   ON performance_metrics(site_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS pm_site_path_idx ON performance_metrics(site_id, pathname);
 
+-- Row-Level Security on sites table
+-- When app.current_user_id is set (stats routes), enforces per-user isolation.
+-- When not set (track routes, webhooks), policy is transparent (user_id = user_id).
+ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY sites_owner_isolation ON sites
+  USING (
+    user_id = coalesce(
+      nullif(current_setting('app.current_user_id', true), ''),
+      user_id
+    )
+  );
