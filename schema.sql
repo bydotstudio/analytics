@@ -54,7 +54,10 @@ CREATE TABLE IF NOT EXISTS sites (
   user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   domain TEXT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ls_webhook_secret      TEXT,
+  stripe_webhook_secret  TEXT,
+  polar_webhook_secret   TEXT
 );
 CREATE INDEX IF NOT EXISTS sites_user_id_idx ON sites(user_id);
 
@@ -79,3 +82,66 @@ CREATE INDEX IF NOT EXISTS pv_referrer_idx     ON page_views(site_id, referrer);
 -- ALTER TABLE "user" ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
 -- ALTER TABLE "user" ADD COLUMN IF NOT EXISTS polar_customer_id TEXT;
 -- ALTER TABLE "user" ADD COLUMN IF NOT EXISTS polar_subscription_id TEXT;
+
+-- Custom events (revenue attribution)
+CREATE TABLE IF NOT EXISTS custom_events (
+  id          BIGSERIAL PRIMARY KEY,
+  site_id     UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  session_id  TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  revenue     NUMERIC(12,2),
+  currency    CHAR(3),
+  properties  JSONB,
+  pathname    TEXT,
+  timestamp   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS ce_site_ts_idx      ON custom_events(site_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS ce_site_name_idx    ON custom_events(site_id, name);
+CREATE INDEX IF NOT EXISTS ce_site_session_idx ON custom_events(site_id, session_id);
+
+-- User identification
+CREATE TABLE IF NOT EXISTS identified_sessions (
+  id               BIGSERIAL PRIMARY KEY,
+  site_id          UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  session_id       TEXT NOT NULL,
+  external_user_id TEXT NOT NULL,
+  traits           JSONB,
+  identified_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(site_id, session_id)
+);
+CREATE INDEX IF NOT EXISTS is_site_session_idx ON identified_sessions(site_id, session_id);
+CREATE INDEX IF NOT EXISTS is_site_user_idx    ON identified_sessions(site_id, external_user_id);
+
+-- Core Web Vitals
+CREATE TABLE IF NOT EXISTS performance_metrics (
+  id          BIGSERIAL PRIMARY KEY,
+  site_id     UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  session_id  TEXT NOT NULL,
+  pathname    TEXT NOT NULL,
+  lcp         REAL,
+  cls         REAL,
+  inp         REAL,
+  fcp         REAL,
+  ttfb        REAL,
+  timestamp   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS pm_site_ts_idx   ON performance_metrics(site_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS pm_site_path_idx ON performance_metrics(site_id, pathname);
+
+-- Funnels
+CREATE TABLE IF NOT EXISTS funnels (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id    UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS funnels_site_idx ON funnels(site_id);
+
+CREATE TABLE IF NOT EXISTS funnel_steps (
+  id         BIGSERIAL PRIMARY KEY,
+  funnel_id  UUID NOT NULL REFERENCES funnels(id) ON DELETE CASCADE,
+  step_order SMALLINT NOT NULL,
+  pathname   TEXT NOT NULL,
+  label      TEXT
+);
+CREATE INDEX IF NOT EXISTS fs_funnel_idx ON funnel_steps(funnel_id, step_order);

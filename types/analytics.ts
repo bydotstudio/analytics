@@ -22,3 +22,89 @@ export interface BreakdownRow {
 }
 
 export type ViewMode = "simple" | "advanced";
+
+export interface RevenueStats {
+  total_revenue: number;
+  total_conversions: number;
+  unique_converters: number;
+  top_events: { name: string; count: number; revenue: number }[];
+  top_pages: { label: string; conversions: number; revenue: number }[];
+}
+
+export interface Session {
+  session_id: string;
+  country: string | null;
+  device_type: string | null;
+  browser: string | null;
+  os: string | null;
+  page_count: number;
+  started_at: string;
+  ended_at: string;
+  duration_seconds: number;
+  external_user_id: string | null;
+  traits: Record<string, unknown> | null;
+}
+
+export interface JourneyStep {
+  pathname: string;
+  referrer: string | null;
+  timestamp: string;
+}
+
+export interface IdentificationStats {
+  total_sessions: number;
+  identified_sessions: number;
+  anonymous_sessions: number;
+  identification_rate: number;
+}
+
+export type Grade = "A+" | "A" | "B" | "C" | "D" | "F";
+
+export interface PerformanceMetric {
+  pathname: string;
+  samples: number;
+  avg_lcp: number | null;
+  avg_cls: number | null;
+  avg_inp: number | null;
+  avg_fcp: number | null;
+  avg_ttfb: number | null;
+  score: Grade;
+}
+
+export interface SitePerformance {
+  overall_score: Grade;
+  avg_lcp: number | null;
+  avg_cls: number | null;
+  avg_inp: number | null;
+  avg_fcp: number | null;
+  avg_ttfb: number | null;
+}
+
+export interface FunnelStep {
+  id: string;
+  step_order: number;
+  pathname: string;
+  label: string | null;
+}
+
+export interface Funnel {
+  id: string;
+  name: string;
+  created_at: string;
+  steps: FunnelStep[];
+}
+
+export interface FunnelStepStat {
+  step_order: number;
+  label: string;
+  pathname: string;
+  sessions: number;
+  drop_off: number;
+  conversion: number;
+}
+
+export interface RealtimeEvent {
+  pathname: string;
+  country: string | null;
+  timestamp: string;
+}

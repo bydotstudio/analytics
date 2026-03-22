@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { UAParser } from "ua-parser-js";
 import { pool } from "@/lib/db";
 
 const BOT_REGEX =
@@ -12,11 +11,14 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const trackSchema = z.object({
+const schema = z.object({
   siteId: z.string().uuid(),
-  pathname: z.string().max(500),
-  referrer: z.string().max(500).optional(),
   sessionId: z.string().max(100).optional(),
+  name: z.string().min(1).max(100),
+  pathname: z.string().max(500).optional(),
+  revenue: z.number().nonnegative().optional(),
+  currency: z.string().min(3).max(3).optional(),
+  properties: z.record(z.string(), z.unknown()).optional(),
 });
 
 export async function OPTIONS() {
@@ -31,17 +33,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  const parsed = trackSchema.safeParse(body);
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400, headers: CORS_HEADERS });
   }
 
-  const { siteId, sessionId } = parsed.data;
-  let { pathname, referrer } = parsed.data;
+  const { siteId, sessionId, name, revenue, currency, properties } = parsed.data;
+  let { pathname } = parsed.data;
 
   // Verify site exists
-  const { rows } = await pool.query<{ id: string; domain: string; user_id: string }>(
-    "SELECT id, domain, user_id FROM sites WHERE id = $1",
+  const { rows } = await pool.query<{ user_id: string }>(
+    "SELECT user_id FROM sites WHERE id = $1",
     [siteId]
   );
   const site = rows[0];
@@ -51,44 +53,16 @@ export async function POST(req: NextRequest) {
   const ua = req.headers.get("user-agent") ?? "";
   if (BOT_REGEX.test(ua)) return new Response(null, { status: 204, headers: CORS_HEADERS });
 
-  // Parse UA
-  const parser = new UAParser(ua);
-  const browser = parser.getBrowser().name ?? null;
-  const os = parser.getOS().name ?? null;
-  const deviceType = (() => {
-    const t = parser.getDevice().type;
-    if (t === "mobile") return "mobile";
-    if (t === "tablet") return "tablet";
-    return "desktop";
-  })();
-
-  // Country from hosting/proxy headers
-  const country =
-    req.headers.get("x-vercel-ip-country") ??
-    req.headers.get("cf-ipcountry") ??
-    req.headers.get("x-country") ??
-    null;
-
   // Sanitize pathname
-  try {
-    const url = new URL(pathname, "https://x");
-    pathname = url.pathname.slice(0, 500);
-  } catch {
-    pathname = "/";
-  }
-
-  // Sanitize referrer — strip own domain, keep hostname only
-  if (referrer) {
+  if (pathname) {
     try {
-      const ref = new URL(referrer);
-      const ownDomain = site.domain.replace(/^https?:\/\//, "").split("/")[0];
-      referrer = ref.hostname === ownDomain ? undefined : ref.hostname;
+      pathname = new URL(pathname, "https://x").pathname.slice(0, 500);
     } catch {
-      referrer = undefined;
+      pathname = undefined;
     }
   }
 
-  // Event limit: 20k events per month (page_views + custom_events)
+  // Usage limit: 20k events/month (page_views + custom_events combined)
   const { rows: usageRows } = await pool.query<{ count: string }>(
     `SELECT (
       (SELECT COUNT(*) FROM page_views pv JOIN sites s ON s.id = pv.site_id WHERE s.user_id = $1 AND pv.timestamp >= date_trunc('month', now()))
@@ -102,10 +76,18 @@ export async function POST(req: NextRequest) {
   }
 
   await pool.query(
-    `INSERT INTO page_views (site_id, session_id, pathname, referrer, country, device_type, browser, os)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [siteId, sessionId ?? "unknown", pathname, referrer ?? null, country, deviceType, browser, os]
+    `INSERT INTO custom_events (site_id, session_id, name, revenue, currency, properties, pathname)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      siteId,
+      sessionId ?? "unknown",
+      name,
+      revenue ?? null,
+      currency ?? null,
+      properties ? JSON.stringify(properties) : null,
+      pathname ?? null,
+    ]
   );
 
-  return NextResponse.json({ ok: true }, { headers: CORS_HEADERS });
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
 }

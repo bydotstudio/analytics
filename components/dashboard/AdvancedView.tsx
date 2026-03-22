@@ -8,6 +8,7 @@ import {
   useCountryBreakdown,
 } from "@/hooks/useStats";
 import BreakdownTable from "./BreakdownTable";
+import IdentificationCard from "./IdentificationCard";
 
 export default function AdvancedView({ siteId }: { siteId: string }) {
   const pages = useTopPages(siteId);
@@ -29,6 +30,7 @@ export default function AdvancedView({ siteId }: { siteId: string }) {
       <BreakdownTable title="Referrers" rows={referrers.data ?? []} loading={referrers.isLoading} />
       <BreakdownTable title="Devices" rows={devices.data ?? []} loading={devices.isLoading} />
       <BreakdownTable title="Countries" rows={countries.data ?? []} loading={countries.isLoading} />
+      <IdentificationCard siteId={siteId} />
     </motion.div>
   );
 }

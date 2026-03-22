@@ -44,6 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       fetch("/api/billing/usage").then((r) => r.json()),
     ])
       .then(([sitesData, usageData]: [Site[], UsageData]) => {
+        if (!Array.isArray(sitesData)) return;
         setSites(sitesData);
         setUsage(usageData);
         const saved = localStorage.getItem("lastSiteId");

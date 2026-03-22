@@ -71,6 +71,21 @@ export const auth = betterAuth({
                 `UPDATE "user" SET plan = 'pro', "polarSubscriptionId" = $2, "polarCustomerId" = $3 WHERE id = $1`,
                 [userId, payload.data.id, payload.data.customer?.id]
               );
+
+              // Record revenue event on all user's sites
+              const amount = (payload.data.amount ?? 0) / 100;
+              const currency = (payload.data.currency ?? "USD").toUpperCase();
+              const { rows: sites } = await pool.query<{ id: string }>(
+                `SELECT id FROM sites WHERE user_id = $1`,
+                [userId]
+              );
+              for (const site of sites) {
+                await pool.query(
+                  `INSERT INTO custom_events (site_id, session_id, name, revenue, currency, pathname)
+                   VALUES ($1, $2, 'subscription_started', $3, $4, '/dashboard')`,
+                  [site.id, `polar_${payload.data.id}`, amount || null, amount ? currency : null]
+                );
+              }
             }
           },
           onSubscriptionCanceled: async (payload) => {
