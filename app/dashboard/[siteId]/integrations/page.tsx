@@ -7,7 +7,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className="shrink-0 rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-500 transition-colors hover:border-zinc-300 hover:text-zinc-700 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:text-zinc-300"
+      className="shrink-0 rounded-md border border-white/10 px-2 py-1 text-xs text-white/40 transition-colors hover:border-white/20 hover:text-white/70"
     >
       {copied ? "Copied!" : "Copy"}
     </button>
@@ -23,19 +23,19 @@ function SecretInput({ label, placeholder, onSave, saving }: {
   const [val, setVal] = useState("");
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-zinc-500">{label}</label>
+      <label className="text-xs font-medium text-white/40">{label}</label>
       <div className="flex gap-2">
         <input
           type="password"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-mono dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-mono text-white placeholder:text-white/20 outline-none focus:border-white/20"
         />
         <button
           disabled={!val.trim() || saving}
           onClick={() => onSave(val.trim()).then(() => setVal(""))}
-          className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-[background-color,opacity] hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900"
+          className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-black transition-[background-color,opacity] hover:bg-zinc-100 disabled:opacity-30"
         >
           Save
         </button>
@@ -44,49 +44,44 @@ function SecretInput({ label, placeholder, onSave, saving }: {
   );
 }
 
-function IntegrationCard({ title, badge, webhookUrl, secretLabel, secretPlaceholder, onSave, saving, docsUrl, steps }: {
+function IntegrationCard({ title, badge, connected, webhookUrl, secretLabel, secretPlaceholder, onSave, saving, steps }: {
   title: string;
   badge: string;
+  connected: boolean;
   webhookUrl: string;
   secretLabel: string;
   secretPlaceholder: string;
   onSave: (val: string) => Promise<void>;
   saving: boolean;
-  docsUrl: string;
   steps: string[];
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{title}</span>
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">{badge}</span>
-        </div>
+    <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-6">
+      <div className="mb-4 flex items-center gap-3">
+        <span className="text-base font-semibold text-white">{title}</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs ${connected ? "bg-emerald-500/15 text-emerald-400" : "bg-white/[0.06] text-white/40"}`}>
+          {badge}
+        </span>
       </div>
 
       <div className="mb-4 space-y-1.5">
-        <p className="text-xs font-medium text-zinc-500">Webhook URL</p>
+        <p className="text-xs font-medium text-white/40">Webhook URL</p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 overflow-x-auto rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+          <code className="flex-1 overflow-x-auto rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-white/60">
             {webhookUrl}
           </code>
           <CopyButton text={webhookUrl} />
         </div>
       </div>
 
-      <SecretInput
-        label={secretLabel}
-        placeholder={secretPlaceholder}
-        onSave={onSave}
-        saving={saving}
-      />
+      <SecretInput label={secretLabel} placeholder={secretPlaceholder} onSave={onSave} saving={saving} />
 
-      <div className="mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-        <p className="mb-2 text-xs font-medium text-zinc-500">Setup steps</p>
+      <div className="mt-4 border-t border-white/[0.06] pt-4">
+        <p className="mb-2 text-xs font-medium text-white/40">Setup steps</p>
         <ol className="space-y-1">
           {steps.map((step, i) => (
-            <li key={i} className="flex gap-2 text-xs text-zinc-400">
-              <span className="shrink-0 font-semibold text-zinc-500">{i + 1}.</span>
+            <li key={i} className="flex gap-2 text-xs text-white/30">
+              <span className="shrink-0 font-semibold text-white/40">{i + 1}.</span>
               <span dangerouslySetInnerHTML={{ __html: step }} />
             </li>
           ))}
@@ -104,7 +99,7 @@ export default function IntegrationsPage({
   const { siteId } = use(params);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ ls: boolean; stripe: boolean; polar: boolean } | null>(null);
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "");
 
   useEffect(() => {
     fetch(`/api/sites/${siteId}/integrations`)
@@ -128,20 +123,16 @@ export default function IntegrationsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Revenue Integrations</h2>
-        <p className="mt-1 text-xs text-zinc-400">Connect your payment provider to automatically track revenue events.</p>
+        <h2 className="text-sm font-semibold text-white/60">Revenue Integrations</h2>
+        <p className="mt-1 text-xs text-white/30">Connect your payment provider to automatically track revenue events.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <IntegrationCard
-          title="Polar"
-          badge={status?.polar ? "✓ Connected" : "Not connected"}
+          title="Polar" badge={status?.polar ? "✓ Connected" : "Not connected"} connected={status?.polar ?? false}
           webhookUrl={`${appUrl}/api/webhooks/polar/${siteId}`}
-          secretLabel="Webhook secret"
-          secretPlaceholder="Paste your webhook secret…"
-          onSave={(val) => save("polar_webhook_secret", val)}
-          saving={saving}
-          docsUrl="https://docs.polar.sh/api-and-sdk/webhooks"
+          secretLabel="Webhook secret" secretPlaceholder="Paste your webhook secret…"
+          onSave={(val) => save("polar_webhook_secret", val)} saving={saving}
           steps={[
             'Go to <strong>Polar → Settings → Webhooks</strong>',
             'Click <strong>Add endpoint</strong> and paste the URL above',
@@ -150,14 +141,10 @@ export default function IntegrationsPage({
           ]}
         />
         <IntegrationCard
-          title="Lemon Squeezy"
-          badge={status?.ls ? "✓ Connected" : "Not connected"}
+          title="Lemon Squeezy" badge={status?.ls ? "✓ Connected" : "Not connected"} connected={status?.ls ?? false}
           webhookUrl={`${appUrl}/api/webhooks/lemonsqueezy/${siteId}`}
-          secretLabel="Signing secret"
-          secretPlaceholder="Paste your webhook signing secret…"
-          onSave={(val) => save("ls_webhook_secret", val)}
-          saving={saving}
-          docsUrl="https://docs.lemonsqueezy.com/help/webhooks"
+          secretLabel="Signing secret" secretPlaceholder="Paste your webhook signing secret…"
+          onSave={(val) => save("ls_webhook_secret", val)} saving={saving}
           steps={[
             'Go to <strong>Lemon Squeezy → Settings → Webhooks</strong>',
             'Click <strong>Add webhook</strong> and paste the URL above',
@@ -165,16 +152,11 @@ export default function IntegrationsPage({
             'Copy the <strong>Signing secret</strong> and paste it above',
           ]}
         />
-
         <IntegrationCard
-          title="Stripe"
-          badge={status?.stripe ? "✓ Connected" : "Not connected"}
+          title="Stripe" badge={status?.stripe ? "✓ Connected" : "Not connected"} connected={status?.stripe ?? false}
           webhookUrl={`${appUrl}/api/webhooks/stripe/${siteId}`}
-          secretLabel="Webhook signing secret (whsec_…)"
-          secretPlaceholder="whsec_…"
-          onSave={(val) => save("stripe_webhook_secret", val)}
-          saving={saving}
-          docsUrl="https://stripe.com/docs/webhooks"
+          secretLabel="Webhook signing secret (whsec_…)" secretPlaceholder="whsec_…"
+          onSave={(val) => save("stripe_webhook_secret", val)} saving={saving}
           steps={[
             'Go to <strong>Stripe Dashboard → Developers → Webhooks</strong>',
             'Click <strong>Add endpoint</strong> and paste the URL above',
@@ -184,10 +166,10 @@ export default function IntegrationsPage({
         />
       </div>
 
-      <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Or track manually from your frontend</p>
-        <p className="mb-3 text-xs text-zinc-400">Call after any successful payment — works with any provider:</p>
-        <pre className="overflow-x-auto rounded-lg bg-zinc-100 p-3 text-xs text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">{`// After payment succeeds
+      <div className="rounded-xl border border-white/[0.06] bg-zinc-900 p-5">
+        <p className="mb-2 text-sm font-semibold text-white/70">Or track manually from your frontend</p>
+        <p className="mb-3 text-xs text-white/40">Call after any successful payment — works with any provider:</p>
+        <pre className="overflow-x-auto rounded-lg bg-white/[0.05] p-3 text-xs text-white/60">{`// After payment succeeds
 analytics.track('purchase', { revenue: 49.99, currency: 'USD' })
 
 // After subscription starts

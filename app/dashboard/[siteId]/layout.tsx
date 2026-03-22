@@ -10,7 +10,6 @@ const tabs = [
   { label: "Realtime", segment: "realtime" },
   { label: "Journeys", segment: "journeys" },
   { label: "Performance", segment: "performance" },
-  { label: "Funnels", segment: "funnels" },
   { label: "Integrations", segment: "integrations" },
 ];
 
@@ -44,8 +43,8 @@ export default function SiteLayout({
               className={[
                 "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-150",
                 isActive
-                  ? "bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900"
-                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
+                  ? "bg-white/10 text-white"
+                  : "text-white/50 hover:bg-white/5 hover:text-white/80",
               ].join(" ")}
             >
               {tab.label}

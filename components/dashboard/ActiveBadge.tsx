@@ -8,7 +8,7 @@ export default function ActiveBadge({ siteId }: { siteId: string }) {
   const count = data?.active ?? 0;
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium tabular-nums text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-medium tabular-nums text-emerald-400">
       <span className="relative flex size-2">
         <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
         <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />

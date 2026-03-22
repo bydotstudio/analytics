@@ -72,12 +72,6 @@ Most analytics tools are either too heavy (Google Analytics, Mixpanel), too expe
 - Click session → modal with ordered steps, timestamps relative to session start
 - Sessions from last 7 days, LEFT JOIN with `identified_sessions` for identity info
 
-### Funnel Analysis
-- Create named funnels with ordered steps (pathname per step)
-- Per-step drop-off % and overall conversion rate
-- Horizontal bar chart proportional to step 1 session count
-- Stored in `funnels` + `funnel_steps` tables
-
 ### Revenue Webhook Integrations
 Auto-insert `custom_events` on payment — no manual instrumentation needed:
 
@@ -110,11 +104,11 @@ Integration settings UI at `/dashboard/[siteId]/integrations`:
 
 ### Dashboard
 - Per-site analytics view with Simple and Advanced modes
-- Simple: today / last 7d / last 30d pageview summary + privacy badge
+- Simple: 2×3 grid of large stat cards — today, active now (live), this week, this month, top country (flag emoji), top referrer + privacy badge
 - Advanced: top pages, referrers, countries, devices, browsers + identification card
 - Live "active visitors" badge (5-minute rolling window)
 - Site selector dropdown for switching between tracked sites
-- Per-site tab navigation: Overview | Events | Realtime | Journeys | Performance | Funnels | Integrations
+- Per-site tab navigation: Overview | Events | Realtime | Journeys | Performance | Integrations
 
 ### Authentication
 - Email + password sign-up and sign-in
@@ -136,6 +130,25 @@ Integration settings UI at `/dashboard/[siteId]/integrations`:
 - List all sites with embed snippet and copy button
 - Delete a site (cascades to all its pageview data)
 - Upgrade to Pro / Manage billing via Polar customer portal
+
+---
+
+## Design System
+
+Dark-first (`#0f0f0f` page background). All values are always-dark — no `dark:` Tailwind variants.
+
+- **Cards**: `bg-white/[0.04]` (overview stat cards), `bg-zinc-900` (data cards)
+- **Card radius**: `rounded-[24px]` (stat cards), `rounded-xl` (data cards)
+- **Borders**: `border-white/[0.06]`
+- **Pill surfaces** (header toggles, selectors): `bg-white/[0.06]`, `border-radius: 99px`
+- **Active pill state**: `bg-white/10`
+- **Text hierarchy**: `text-white` / `text-white/70` / `text-white/50` / `text-white/40` / `text-white/30`
+- **Stat card label**: `text-xl` (20px), Inter Regular
+- **Stat card value**: `text-[64px]`, Inter SemiBold, `tracking-[-0.03em]`
+- **Header padding**: `px-4 py-2` → scales to `xl:px-16 xl:py-8` (64px / 32px at 1440px)
+- **Primary CTA**: `bg-white text-black rounded-full`
+- **Destructive text**: `text-red-400`
+- **Live indicator**: pulsing `bg-emerald-500` dot with `opacity-75 animate-ping` halo
 
 ---
 
@@ -190,11 +203,6 @@ performance_metrics
   lcp, cls, inp, fcp, ttfb (REAL)
   timestamp
 
-funnels
-  id (UUID), site_id, name, created_at
-
-funnel_steps
-  id (BIGSERIAL), funnel_id, step_order (SMALLINT), pathname, label
 ```
 
 ---
@@ -243,7 +251,7 @@ analytics.identify('user-123', { name: 'Alice', plan: 'pro' })
 | `POST` | `/api/sites` | Create a site (limit: 5) |
 | `DELETE` | `/api/sites/[siteId]` | Delete a site |
 | `GET/PATCH` | `/api/sites/[siteId]/integrations` | Integration webhook secrets |
-| `GET` | `/api/stats/summary` | Today / 7d / 30d counts |
+| `GET` | `/api/stats/summary` | Today / 7d / 30d counts + top country + top referrer |
 | `GET` | `/api/stats/active` | Active visitors (last 5 min) |
 | `GET` | `/api/stats/pages` | Top pages |
 | `GET` | `/api/stats/referrers` | Top referrers |
@@ -256,9 +264,6 @@ analytics.identify('user-123', { name: 'Alice', plan: 'pro' })
 | `GET` | `/api/stats/performance` | Per-page Core Web Vitals + grades |
 | `GET` | `/api/stats/performance/site` | Site-wide averages + overall grade |
 | `GET` | `/api/realtime/stream` | SSE stream of live pageviews |
-| `GET/POST` | `/api/funnels` | List / create funnels |
-| `DELETE` | `/api/funnels/[funnelId]` | Delete a funnel |
-| `GET` | `/api/funnels/[funnelId]/stats` | Per-step drop-off data |
 | `GET` | `/api/billing/usage` | Current plan + usage counts |
 | `*` | `/api/auth/polar/*` | Polar checkout, portal, webhooks |
 | `*` | `/api/auth/[...all]` | Better Auth session endpoints |

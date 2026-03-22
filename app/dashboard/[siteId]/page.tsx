@@ -1,8 +1,7 @@
 "use client";
 
 import { Suspense, lazy } from "react";
-import { useSiteMode } from "@/hooks/useSiteMode";
-import ModeToggle from "@/components/dashboard/ModeToggle";
+import { useDashboardMode } from "@/contexts/dashboard-mode";
 import SimpleView from "@/components/dashboard/SimpleView";
 import ActiveBadge from "@/components/dashboard/ActiveBadge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,13 +15,12 @@ export default function SiteDashboard({
   params: Promise<{ siteId: string }>;
 }) {
   const { siteId } = use(params);
-  const { mode, toggle } = useSiteMode();
+  const { mode } = useDashboardMode();
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <ActiveBadge siteId={siteId} />
-        <ModeToggle mode={mode} onToggle={toggle} />
       </div>
 
       <SimpleView siteId={siteId} />

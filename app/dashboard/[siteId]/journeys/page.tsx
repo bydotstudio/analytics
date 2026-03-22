@@ -19,8 +19,8 @@ export default function JourneysPage({
         </div>
         <div>
           <IdentificationCard siteId={siteId} />
-          <p className="mt-3 text-xs text-zinc-400">
-            Use <code className="font-mono">analytics.identify(userId, traits)</code> to link sessions to known users.
+          <p className="mt-3 text-xs text-white/30">
+            Use <code className="font-mono text-white/50">analytics.identify(userId, traits)</code> to link sessions to known users.
           </p>
         </div>
       </div>

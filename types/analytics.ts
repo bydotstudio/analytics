@@ -10,6 +10,8 @@ export interface SummaryStats {
   today: number;
   last_7d: number;
   last_30d: number;
+  top_country: string | null;
+  top_referrer: string | null;
 }
 
 export interface ActiveVisitors {
@@ -78,29 +80,6 @@ export interface SitePerformance {
   avg_inp: number | null;
   avg_fcp: number | null;
   avg_ttfb: number | null;
-}
-
-export interface FunnelStep {
-  id: string;
-  step_order: number;
-  pathname: string;
-  label: string | null;
-}
-
-export interface Funnel {
-  id: string;
-  name: string;
-  created_at: string;
-  steps: FunnelStep[];
-}
-
-export interface FunnelStepStat {
-  step_order: number;
-  label: string;
-  pathname: string;
-  sessions: number;
-  drop_off: number;
-  conversion: number;
 }
 
 export interface RealtimeEvent {

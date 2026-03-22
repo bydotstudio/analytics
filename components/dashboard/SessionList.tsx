@@ -17,7 +17,7 @@ function countryToFlag(code: string | null) {
 }
 
 function DeviceIcon({ type }: { type: string | null }) {
-  const cls = "h-3.5 w-3.5 text-zinc-400";
+  const cls = "h-3.5 w-3.5 text-white/30";
   if (type === "mobile") return <Smartphone className={cls} />;
   if (type === "tablet") return <Tablet className={cls} />;
   return <Monitor className={cls} />;
@@ -34,9 +34,9 @@ export default function SessionList({ siteId }: { siteId: string }) {
 
   return (
     <>
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_0_0_1px_rgba(0,0,0,0.03)] dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none">
-        <div className="border-b border-zinc-100 px-5 py-3 dark:border-zinc-800">
-          <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Recent Sessions (7d)</h3>
+      <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900">
+        <div className="border-b border-white/[0.06] px-5 py-3">
+          <h3 className="text-sm font-semibold text-white/70">Recent Sessions (7d)</h3>
         </div>
 
         {isLoading ? (
@@ -46,21 +46,21 @@ export default function SessionList({ siteId }: { siteId: string }) {
             ))}
           </div>
         ) : !sessions?.length ? (
-          <p className="p-5 text-sm text-zinc-400">No sessions in the last 7 days.</p>
+          <p className="p-5 text-sm text-white/30">No sessions in the last 7 days.</p>
         ) : (
           <ul>
             {sessions.map((s) => (
               <li key={s.session_id}>
                 <button
                   onClick={() => setSelected(s)}
-                  className="flex w-full items-center gap-3 px-5 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                  className="flex w-full items-center gap-3 px-5 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
                 >
                   <span className="text-base">{countryToFlag(s.country)}</span>
                   <DeviceIcon type={s.device_type} />
-                  <span className="flex-1 truncate text-sm text-zinc-700 dark:text-zinc-300">
-                    {s.external_user_id ?? <span className="text-zinc-400">Anonymous</span>}
+                  <span className="flex-1 truncate text-sm text-white/60">
+                    {s.external_user_id ?? <span className="text-white/25">Anonymous</span>}
                   </span>
-                  <span className="shrink-0 tabular-nums text-xs text-zinc-400">
+                  <span className="shrink-0 tabular-nums text-xs text-white/30">
                     {s.page_count}p · {formatDuration(s.duration_seconds)}
                   </span>
                 </button>

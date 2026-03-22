@@ -128,20 +128,3 @@ CREATE TABLE IF NOT EXISTS performance_metrics (
 CREATE INDEX IF NOT EXISTS pm_site_ts_idx   ON performance_metrics(site_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS pm_site_path_idx ON performance_metrics(site_id, pathname);
 
--- Funnels
-CREATE TABLE IF NOT EXISTS funnels (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  site_id    UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS funnels_site_idx ON funnels(site_id);
-
-CREATE TABLE IF NOT EXISTS funnel_steps (
-  id         BIGSERIAL PRIMARY KEY,
-  funnel_id  UUID NOT NULL REFERENCES funnels(id) ON DELETE CASCADE,
-  step_order SMALLINT NOT NULL,
-  pathname   TEXT NOT NULL,
-  label      TEXT
-);
-CREATE INDEX IF NOT EXISTS fs_funnel_idx ON funnel_steps(funnel_id, step_order);

@@ -27,26 +27,22 @@ export default function SessionJourneyModal({ siteId, session, onClose }: Props)
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <p className="font-semibold text-zinc-900 dark:text-zinc-50">
-              {session.external_user_id ? (
-                <span>{session.external_user_id}</span>
-              ) : (
-                <span className="text-zinc-400">Anonymous</span>
-              )}
+            <p className="font-semibold text-white">
+              {session.external_user_id ?? <span className="text-white/30">Anonymous</span>}
             </p>
-            <p className="mt-0.5 text-xs text-zinc-400">
+            <p className="mt-0.5 text-xs text-white/30">
               {session.country ?? "Unknown"} · {session.device_type ?? "unknown"} · {session.browser ?? "unknown"} · {session.page_count} pages · {formatDuration(session.duration_seconds)}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+            className="rounded-lg p-1 text-white/30 transition-colors hover:bg-white/5 hover:text-white/60"
           >
             ✕
           </button>
@@ -57,19 +53,19 @@ export default function SessionJourneyModal({ siteId, session, onClose }: Props)
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}
           </div>
         ) : !steps?.length ? (
-          <p className="text-sm text-zinc-400">No pages recorded.</p>
+          <p className="text-sm text-white/30">No pages recorded.</p>
         ) : (
           <ol className="space-y-1">
             {steps.map((step, i) => (
               <li key={i} className="flex items-center gap-3 text-sm">
-                <span className="w-10 shrink-0 text-right text-xs tabular-nums text-zinc-400">
+                <span className="w-10 shrink-0 text-right text-xs tabular-nums text-white/30">
                   {relativeMs(steps[0].timestamp, step.timestamp)}
                 </span>
-                <span className="flex-1 truncate rounded-md bg-zinc-50 px-2 py-1 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                <span className="flex-1 truncate rounded-md bg-white/[0.05] px-2 py-1 text-white/70">
                   {step.pathname}
                 </span>
                 {step.referrer && (
-                  <span className="shrink-0 text-xs text-zinc-400">← {step.referrer}</span>
+                  <span className="shrink-0 text-xs text-white/30">← {step.referrer}</span>
                 )}
               </li>
             ))}

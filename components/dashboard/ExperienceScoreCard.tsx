@@ -5,29 +5,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Grade } from "@/types/analytics";
 
 function gradeColor(grade: Grade) {
-  if (grade === "A+" || grade === "A") return "text-emerald-600 dark:text-emerald-400";
-  if (grade === "B" || grade === "C") return "text-amber-500 dark:text-amber-400";
-  return "text-red-500 dark:text-red-400";
+  if (grade === "A+" || grade === "A") return "text-emerald-400";
+  if (grade === "B" || grade === "C") return "text-amber-400";
+  return "text-red-400";
 }
 
-function gradeBg(grade: Grade) {
-  if (grade === "A+" || grade === "A") return "bg-emerald-50 dark:bg-emerald-950/30";
-  if (grade === "B" || grade === "C") return "bg-amber-50 dark:bg-amber-950/30";
-  return "bg-red-50 dark:bg-red-950/30";
+function gradeBorder(grade: Grade) {
+  if (grade === "A+" || grade === "A") return "border-emerald-500/20";
+  if (grade === "B" || grade === "C") return "border-amber-500/20";
+  return "border-red-500/20";
 }
 
 export default function ExperienceScoreCard({ siteId }: { siteId: string }) {
   const { data, isLoading } = useSitePerformance(siteId);
 
   return (
-    <div className={`rounded-xl border p-5 ${data ? gradeBg(data.overall_score) : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"}`}>
-      <p className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Experience Score</p>
+    <div className={`rounded-xl border bg-zinc-900 p-5 ${data ? gradeBorder(data.overall_score) : "border-white/[0.06]"}`}>
+      <p className="mb-2 text-sm font-semibold text-white/70">Experience Score</p>
       {isLoading ? (
         <Skeleton className="h-16 w-20" />
       ) : !data?.overall_score || data.avg_lcp === null ? (
         <div>
-          <p className="text-4xl font-bold text-zinc-300 dark:text-zinc-700">—</p>
-          <p className="mt-1 text-xs text-zinc-400">No performance data yet. The tracker collects Web Vitals automatically.</p>
+          <p className="text-4xl font-bold text-white/20">—</p>
+          <p className="mt-1 text-xs text-white/30">No performance data yet. The tracker collects Web Vitals automatically.</p>
         </div>
       ) : (
         <div>
@@ -43,8 +43,8 @@ export default function ExperienceScoreCard({ siteId }: { siteId: string }) {
               { label: "TTFB", value: data.avg_ttfb ? `${Math.round(data.avg_ttfb)}ms` : "—" },
             ].map((m) => (
               <div key={m.label} className="text-center">
-                <p className="text-xs font-medium text-zinc-500">{m.label}</p>
-                <p className="text-xs tabular-nums text-zinc-700 dark:text-zinc-300">{m.value}</p>
+                <p className="text-xs font-medium text-white/40">{m.label}</p>
+                <p className="text-xs tabular-nums text-white/60">{m.value}</p>
               </div>
             ))}
           </div>
