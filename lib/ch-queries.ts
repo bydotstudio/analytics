@@ -9,25 +9,11 @@ export async function getSummaryStats(siteId: string): Promise<SummaryStats> {
   const result = await ch.query({
     query: `
       SELECT
-        uniqIf(visitor_hash, toDate(timestamp) = today())                       AS today,
-        uniqIf(visitor_hash, timestamp >= now() - INTERVAL 7 DAY)               AS last_7d,
-        uniqIf(visitor_hash, timestamp >= now() - INTERVAL 30 DAY)              AS last_30d,
-        (
-          SELECT country FROM analytics.events
-          WHERE site_id = {siteId:UUID}
-            AND event_type = 'pageview'
-            AND timestamp >= now() - INTERVAL 30 DAY
-            AND country != ''
-          GROUP BY country ORDER BY count() DESC LIMIT 1
-        ) AS top_country,
-        (
-          SELECT referrer FROM analytics.events
-          WHERE site_id = {siteId:UUID}
-            AND event_type = 'pageview'
-            AND timestamp >= now() - INTERVAL 30 DAY
-            AND referrer != ''
-          GROUP BY referrer ORDER BY count() DESC LIMIT 1
-        ) AS top_referrer
+        uniqIf(visitor_hash, toDate(timestamp) = today())          AS today,
+        uniqIf(visitor_hash, timestamp >= now() - INTERVAL 7 DAY)  AS last_7d,
+        uniqIf(visitor_hash, timestamp >= now() - INTERVAL 30 DAY) AS last_30d,
+        arrayElement(arrayFilter(x -> notEmpty(x), topK(1)(country)),  1) AS top_country,
+        arrayElement(arrayFilter(x -> notEmpty(x), topK(1)(referrer)), 1) AS top_referrer
       FROM analytics.events
       WHERE site_id = {siteId:UUID}
         AND event_type = 'pageview'
@@ -202,20 +188,20 @@ export async function getRevenueStats(siteId: string) {
       SELECT
         coalesce(nullIf(pathname, ''), 'unknown') AS label,
         count()      AS conversions,
-        sum(revenue) AS revenue
+        sum(revenue) AS total_revenue
       FROM analytics.events
       WHERE site_id = {siteId:UUID}
         AND event_type = 'custom'
-        AND revenue IS NOT NULL
+        AND isNotNull(revenue)
         AND timestamp >= now() - INTERVAL 30 DAY
       GROUP BY pathname
-      ORDER BY revenue DESC
+      ORDER BY total_revenue DESC
       LIMIT 20
     `,
     query_params: { siteId },
     format: "JSONEachRow",
   });
-  const topPages = await pagesResult.json<{ label: string; conversions: string; revenue: string }>();
+  const topPages = await pagesResult.json<{ label: string; conversions: string; total_revenue: string }>();
 
   const s = summaryRows[0] ?? { total_revenue: "0", total_conversions: "0", unique_converters: "0" };
   return {
@@ -230,7 +216,7 @@ export async function getRevenueStats(siteId: string) {
     top_pages: topPages.map((r) => ({
       label: r.label,
       conversions: Number(r.conversions),
-      revenue: Number(r.revenue),
+      revenue: Number(r.total_revenue),
     })),
   };
 }
