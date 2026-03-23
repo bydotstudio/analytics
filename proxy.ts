@@ -15,9 +15,9 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // CORS guard for stats routes: block cross-origin browser requests.
+  // CORS guard for stats and realtime routes: block cross-origin browser requests.
   // Direct API calls (no Origin header) are unaffected.
-  if (pathname.startsWith("/api/stats")) {
+  if (pathname.startsWith("/api/stats") || pathname.startsWith("/api/realtime")) {
     const origin = request.headers.get("origin");
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
     if (origin && origin !== appUrl) {
@@ -29,5 +29,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/stats/:path*"],
+  matcher: ["/dashboard/:path*", "/api/stats/:path*", "/api/realtime/:path*"],
 };
