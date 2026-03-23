@@ -21,7 +21,7 @@ services:
     build: .
     restart: unless-stopped
     volumes:
-      - ./GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb:ro
+      - ./GeoLite2-Country.mmdb:/app/GeoLite2-Country.mmdb:rw
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +41,11 @@ services:
       RESEND_FROM: ${RESEND_FROM}
       CRON_SECRET: ${CRON_SECRET}
       MAXMIND_DB_PATH: /app/GeoLite2-Country.mmdb
+      MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:-}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      # Refresh GeoLite2 DB weekly:
+      # 0 3 * * 1 root curl -sf -H "Authorization: Bearer $CRON_SECRET" https://yourdomain.com/api/cron/refresh-geo
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
@@ -50,8 +55,8 @@ services:
       - "9000:9000"
     environment:
       CLICKHOUSE_DB: analytics
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - clickhouse_data:/var/lib/clickhouse

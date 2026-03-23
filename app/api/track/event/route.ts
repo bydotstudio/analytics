@@ -2,7 +2,8 @@ import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { UAParser } from "ua-parser-js";
-import { pool } from "@/lib/db";
+import { pool, getSiteIds } from "@/lib/db";
+import { getMonthlyEventCount } from "@/lib/ch-queries";
 import { ch } from "@/lib/clickhouse";
 import { computeVisitorHash, getClientIp } from "@/lib/visitor";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -93,15 +94,9 @@ export async function POST(req: NextRequest) {
 
   // Monthly event quota: 20k for free, 1M for pro
   const eventLimit = site.plan === "pro" ? 1_000_000 : 20_000;
-  const { rows: usageRows } = await pool.query<{ count: string }>(
-    `SELECT (
-      (SELECT COUNT(*) FROM page_views pv JOIN sites s ON s.id = pv.site_id WHERE s.user_id = $1 AND pv.timestamp >= date_trunc('month', now()))
-      +
-      (SELECT COUNT(*) FROM custom_events ce JOIN sites s ON s.id = ce.site_id WHERE s.user_id = $1 AND ce.timestamp >= date_trunc('month', now()))
-    ) AS count`,
-    [site.user_id]
-  );
-  if (parseInt(usageRows[0].count) >= eventLimit) {
+  const siteIds = await getSiteIds(site.user_id);
+  const currentCount = await getMonthlyEventCount(siteIds);
+  if (currentCount >= eventLimit) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 

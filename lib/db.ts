@@ -46,3 +46,11 @@ export async function verifySiteOwnership(
     client.release();
   }
 }
+
+export async function getSiteIds(userId: string): Promise<string[]> {
+  const { rows } = await pool.query<{ id: string }>(
+    "SELECT id FROM sites WHERE user_id = $1",
+    [userId]
+  );
+  return rows.map((r) => r.id);
+}
