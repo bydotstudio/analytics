@@ -66,7 +66,11 @@ export async function setup({ provide }: { provide: Provide }) {
   // ── Dev server ─────────────────────────────────────────────────────────────
   // Use a dedicated distDir so the test server doesn't conflict with an
   // existing `next dev` process that holds the `.next/dev/lock` file.
-  const stderrChunks: Buffer[] = [];
+  const serverLog: Buffer[] = [];
+  const addLog = (chunk: Buffer) => {
+    serverLog.push(chunk);
+    if (serverLog.length > 100) serverLog.shift();
+  };
   devServer = spawn("bun", ["run", "dev"], {
     env: {
       ...process.env,
@@ -85,14 +89,12 @@ export async function setup({ provide }: { provide: Provide }) {
     stdio: "pipe",
   });
 
-  // Buffer stderr so we can include it in the timeout error message.
-  devServer.stderr?.on("data", (chunk: Buffer) => {
-    stderrChunks.push(chunk);
-    if (stderrChunks.length > 50) stderrChunks.shift(); // keep last ~50 chunks
-  });
+  // Buffer both stderr and stdout so errors are visible in timeout messages.
+  devServer.stderr?.on("data", addLog);
+  devServer.stdout?.on("data", addLog);
 
   await waitForServer("http://localhost:3999", 90_000, () =>
-    stderrChunks.map((b) => b.toString()).join("")
+    serverLog.map((b) => b.toString()).join("")
   );
 
   provide("PG_URL", pgUrl);
