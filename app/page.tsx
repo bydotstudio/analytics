@@ -34,7 +34,7 @@ export default function Home() {
         <h1 className="text-5xl font-bold text-zinc-900 dark:text-zinc-50 sm:text-6xl">
           Simple analytics,
           <br />
-          <span className="text-zinc-400">for €5/month</span>
+          <span className="text-zinc-400">for $5/month</span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-lg text-zinc-500 dark:text-zinc-400">
           Lightweight, privacy-friendly website analytics. One script tag and
@@ -45,7 +45,7 @@ export default function Home() {
             href="/sign-up"
             className="rounded-xl bg-zinc-900 px-6 py-3 text-base font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.12),0_0_0_1px_rgba(0,0,0,0.08)] transition-[background-color,transform] duration-150 hover:bg-zinc-700 motion-safe:active:scale-[0.97] dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            Start tracking — €5/mo
+            Start tracking — $5/mo
           </Link>
           <Link
             href="/sign-in"
@@ -148,13 +148,13 @@ export default function Home() {
         </h2>
         <div className="mx-auto max-w-sm rounded-2xl border border-zinc-200 bg-white p-8 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.04)] dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none">
           <div className="mb-6">
-            <span className="font-variant-numeric: tabular-nums text-4xl font-bold text-zinc-900 dark:text-zinc-50">€5</span>
+            <span className="font-variant-numeric: tabular-nums text-4xl font-bold text-zinc-900 dark:text-zinc-50">$5</span>
             <span className="text-zinc-400">/month</span>
           </div>
           <ul className="mb-8 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
             {[
-              "Up to 5 websites",
-              "20,000 events/month",
+              "Up to 10 websites",
+              "1,000,000 events/month",
               "Pageviews, referrers, countries",
               "Device & browser breakdown",
               "Real-time active visitors",
