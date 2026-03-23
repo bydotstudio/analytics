@@ -2,9 +2,8 @@ import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { UAParser } from "ua-parser-js";
-import { pool, getSiteIds } from "@/lib/db";
+import { pool } from "@/lib/db";
 import { ch } from "@/lib/clickhouse";
-import { getMonthlyEventCount } from "@/lib/ch-queries";
 import { computeVisitorHash, getClientIp } from "@/lib/visitor";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getCountry } from "@/lib/geo";
@@ -68,11 +67,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Verify site exists (join user plan for limit check)
-  const { rows } = await pool.query<{ id: string; domain: string; user_id: string; plan: string }>(
-    `SELECT s.id, s.domain, s.user_id, u.plan
-     FROM sites s JOIN "user" u ON u.id = s.user_id
-     WHERE s.id = $1`,
+  // Verify site exists
+  const { rows } = await pool.query<{ id: string; domain: string; user_id: string }>(
+    `SELECT id, domain, user_id FROM sites WHERE id = $1`,
     [siteId]
   );
   const site = rows[0];
@@ -122,14 +119,6 @@ export async function POST(req: NextRequest) {
   // Compute server-side visitor hash (cookieless, no PII stored)
   const salt = process.env.VISITOR_HASH_SALT ?? "default-salt";
   const visitorHash = computeVisitorHash(ip, ua, salt);
-
-  // Monthly event quota: 20k for free, 1M for pro
-  const eventLimit = site.plan === "pro" ? 1_000_000 : 20_000;
-  const siteIds = await getSiteIds(site.user_id);
-  const currentCount = await getMonthlyEventCount(siteIds);
-  if (currentCount >= eventLimit) {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
 
   // Write to Postgres (for rate-limit counting & billing — stays synchronous)
   await pool.query(

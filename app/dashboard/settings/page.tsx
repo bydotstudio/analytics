@@ -55,45 +55,17 @@ export default function SettingsPage() {
         <h2 className="mb-6 text-xl text-white">Billing</h2>
         {usage && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  usage.plan === "pro"
-                    ? "bg-blue-500/15 text-blue-400"
-                    : "bg-white/[0.06] text-white/40"
-                }`}
-              >
-                {usage.plan === "pro" ? "Pro" : "Free"}
-              </span>
-              <span className="text-xs tabular-nums text-white/40">
-                {usage.sites}/{usage.limits.sites} sites &middot;{" "}
-                {usage.events_this_month.toLocaleString()}/
-                {usage.limits.events_per_month.toLocaleString()} events this month
-              </span>
-            </div>
+            <span className="text-xs tabular-nums text-white/40">
+              {usage.events_this_month.toLocaleString()}/
+              {usage.limits.events_per_month.toLocaleString()} events this month
+            </span>
 
-            {usage.plan !== "pro" && (
-              <div className="rounded-lg bg-white/[0.03] p-4">
-                <p className="mb-3 text-xs text-white/40">
-                  Upgrade to Pro for €5/month — up to 5 sites and 20,000 events/month.
-                </p>
-                <button
-                  onClick={() => authClient.checkout({ slug: "pro" })}
-                  className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-[background-color,transform] hover:bg-zinc-100 motion-safe:active:scale-[0.97]"
-                >
-                  Upgrade to Pro — €5/mo
-                </button>
-              </div>
-            )}
-
-            {usage.plan === "pro" && (
-              <button
-                onClick={() => authClient.customer.portal()}
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white motion-safe:active:scale-[0.97]"
-              >
-                Manage billing
-              </button>
-            )}
+            <button
+              onClick={() => authClient.customer.portal()}
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white motion-safe:active:scale-[0.97]"
+            >
+              Manage billing
+            </button>
           </div>
         )}
       </section>

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     ),
   ]);
 
-  const plan = userResult.rows[0]?.plan ?? "free";
+  const plan = userResult.rows[0]?.plan ?? "pro";
   const events_this_month = await getMonthlyEventCount(siteIds);
 
   return NextResponse.json({
@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
     sites: parseInt(sitesResult.rows[0].count),
     events_this_month,
     limits: {
-      sites: plan === "pro" ? null : 5,
-      events_per_month: plan === "pro" ? 1_000_000 : 20_000,
+      sites: null,
+      events_per_month: 1_000_000,
     },
   });
 }

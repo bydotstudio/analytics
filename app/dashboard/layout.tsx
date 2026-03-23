@@ -317,19 +317,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           isPro={isPro}
         />
 
-        {!isPro && usage && (
-          <div className="border-b border-amber-900/50 bg-amber-950/30 px-4 py-2 text-center text-sm text-amber-400">
-            You&apos;re on the free plan.{" "}
-            <button
-              onClick={() => authClient.checkout({ slug: "pro" })}
-              className="cursor-pointer font-medium underline underline-offset-2"
-            >
-              Upgrade to Pro
-            </button>{" "}
-            for €5/month to unlock full tracking.
-          </div>
-        )}
-
         <main className="flex w-full flex-1 flex-col px-4 pt-6 pb-16 sm:px-6 md:px-8 lg:px-12 xl:px-16">{children}</main>
 
         {showAddSite && (

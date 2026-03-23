@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS "user" (
   image TEXT,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  plan TEXT NOT NULL DEFAULT 'free',
+  plan TEXT NOT NULL DEFAULT 'pro',
   "polarCustomerId" TEXT,
   "polarSubscriptionId" TEXT
 );
@@ -79,7 +79,7 @@ CREATE INDEX IF NOT EXISTS pv_pathname_idx     ON page_views(site_id, pathname);
 CREATE INDEX IF NOT EXISTS pv_referrer_idx     ON page_views(site_id, referrer);
 
 -- Migration: add billing columns to existing deployments
--- ALTER TABLE "user" ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+-- ALTER TABLE "user" ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'pro';
 -- ALTER TABLE "user" ADD COLUMN IF NOT EXISTS polar_customer_id TEXT;
 -- ALTER TABLE "user" ADD COLUMN IF NOT EXISTS polar_subscription_id TEXT;
 

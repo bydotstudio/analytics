@@ -101,7 +101,7 @@ export const auth = betterAuth({
             const userId = await resolveUserId(payload.data.customer);
             if (userId) {
               await pool.query(
-                `UPDATE "user" SET plan = 'free', "polarSubscriptionId" = NULL WHERE id = $1`,
+                `UPDATE "user" SET "polarSubscriptionId" = NULL WHERE id = $1`,
                 [userId]
               );
             }
@@ -110,7 +110,7 @@ export const auth = betterAuth({
             const userId = await resolveUserId(payload.data.customer);
             if (userId) {
               await pool.query(
-                `UPDATE "user" SET plan = 'free', "polarSubscriptionId" = NULL WHERE id = $1`,
+                `UPDATE "user" SET "polarSubscriptionId" = NULL WHERE id = $1`,
                 [userId]
               );
             }

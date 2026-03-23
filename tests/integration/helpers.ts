@@ -25,15 +25,12 @@ export function appUrl(): string {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-export async function createTestUser(
-  pool: Pool,
-  plan: "free" | "pro" = "free"
-): Promise<string> {
+export async function createTestUser(pool: Pool): Promise<string> {
   const id = randomUUID();
   await pool.query(
-    `INSERT INTO "user" (id, name, email, plan, "emailVerified", "createdAt", "updatedAt")
-     VALUES ($1, 'Test User', $2, $3, true, NOW(), NOW())`,
-    [id, `test+${id}@example.com`, plan]
+    `INSERT INTO "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+     VALUES ($1, 'Test User', $2, true, NOW(), NOW())`,
+    [id, `test+${id}@example.com`]
   );
   return id;
 }
