@@ -52,9 +52,26 @@ export async function createTestSite(
   return id;
 }
 
+// Better Auth signs cookies as `${rawToken}.${base64(HMAC-SHA256(rawToken, secret))}`.
+// Must match BETTER_AUTH_SECRET set in globalSetup.ts.
+const BETTER_AUTH_SECRET = "test-secret-exactly-32-chars-abc!";
+
+async function signSessionToken(token: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(BETTER_AUTH_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(token));
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+  return `${token}.${b64}`;
+}
+
 /**
  * Insert a Better Auth session row directly.
- * Returns the token to use as: Cookie: better-auth.session_token=<token>
+ * Returns the SIGNED cookie value for: Cookie: better-auth.session_token=<value>
  */
 export async function createTestSession(
   pool: Pool,
@@ -66,7 +83,8 @@ export async function createTestSession(
      VALUES ($1, $2, $3, NOW() + INTERVAL '1 day', NOW(), NOW(), '127.0.0.1', 'vitest')`,
     [randomUUID(), userId, token]
   );
-  return token;
+  // Return the signed value — Better Auth verifies the HMAC before looking up the session.
+  return signSessionToken(token);
 }
 
 export function authHeader(token: string): HeadersInit {
