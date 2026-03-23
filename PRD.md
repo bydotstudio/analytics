@@ -32,7 +32,7 @@ Most analytics tools are either too heavy (Google Analytics, Mixpanel), too expe
 - **GDPR-first by design**: no IP addresses stored, no cross-site tracking, no consent banner required
 - Bot/crawler filtering server-side via regex
 - UA parsing: browser, OS, device type (mobile/tablet/desktop)
-- Country detection from proxy/CDN headers (Cloudflare `CF-IPCountry`, Vercel `x-vercel-ip-country`)
+- Country detection: CDN headers first (`CF-IPCountry`, `x-vercel-ip-country`, `x-country`), falling back to MaxMind GeoLite2 MMDB for self-hosted accuracy
 
 ### Custom Events & Revenue Attribution
 - `analytics.track(name, props)` — call after any payment, signup, button click, etc.
@@ -107,6 +107,13 @@ Integration settings UI at `/dashboard/[siteId]/integrations`:
 - Write-only secret input (never returned to client, only boolean `configured` flag exposed)
 - Step-by-step setup instructions per provider
 
+### Transactional Emails (Resend)
+- **Email verification**: sent on sign-up via Better Auth `sendVerificationEmail` hook
+- **Password reset**: sent on request via Better Auth `sendResetPassword` hook
+- **Weekly digest**: every verified user receives a summary per site — visitors this week, top 5 pages, top 5 countries, total revenue — triggered via `GET /api/cron/weekly-digest` (cron-secret auth)
+- All emails rendered as inline-HTML (dark theme, no external CSS)
+- Sender address configurable via `RESEND_FROM`
+
 ### GDPR Compliance
 - No cookies set anywhere
 - No IP addresses stored
@@ -124,7 +131,8 @@ Integration settings UI at `/dashboard/[siteId]/integrations`:
 - Per-site tab navigation: Overview | Events | Realtime | Journeys | Performance | Integrations
 
 ### Authentication
-- Email + password sign-up and sign-in
+- Email + password sign-up and sign-in via Better Auth
+- Email verification required; password reset via Resend
 - Session-based auth, no OAuth providers
 
 ### Billing
@@ -132,12 +140,17 @@ Integration settings UI at `/dashboard/[siteId]/integrations`:
 - Checkout, customer portal, and webhook handling via the Polar + Better Auth integration
 - Automatic Polar customer creation on sign-up
 - Subscription state synced to the `plan` column in the DB via webhooks
-- Upgrade prompt shown on dashboard when on free plan
 
 ### Usage Limits (enforced server-side)
-- Max 10 sites per account — enforced on site creation
-- Max **1,000,000 events/month** (pageviews + custom_events combined) — enforced on every tracking request (silent 204 drop if over)
+- Max **10 sites** per account — enforced on site creation
+- Max **1,000,000 events/month** (pageviews + custom events combined, counted in ClickHouse) — no free tier; all accounts get the same limit
 - Usage stats available via `GET /api/billing/usage`
+
+### Security
+- **IP-based rate limiting**: in-memory sliding-window, 120 requests per 60-second window per IP; 429 response with `Retry-After` header
+- **Site ownership verification**: every stats read calls `verifySiteOwnership` which runs inside a transaction with `set_config('app.current_user_id', ...)` — backed by a Postgres RLS policy on the `sites` table
+- **CORS guard**: `proxy.ts` blocks cross-origin requests to all `/api/stats/*` routes (`403 Forbidden` if `Origin` header is present and doesn't match `NEXT_PUBLIC_APP_URL`); direct API calls without `Origin` are unaffected
+- **Webhook secrets write-only**: integration secrets are stored per-site in DB; GET endpoint returns only boolean `configured` flags
 
 ### Settings
 - List all sites with embed snippet and copy button
@@ -173,14 +186,17 @@ Dark-first (`#0f0f0f` page background). All values are always-dark — no `dark:
 | UI | React 19 + Tailwind CSS v4 |
 | Auth | Better Auth v1.5 |
 | Billing | Polar + `@polar-sh/better-auth` adapter |
+| Email | Resend |
 | Event store | ClickHouse (MergeTree engine, self-hosted via Docker) |
 | Metadata / Billing DB | PostgreSQL (self-hosted via Docker) |
 | DB client | `@clickhouse/client` (events) + `pg` node-postgres (metadata) |
 | Data fetching | TanStack Query v5 |
 | UA parsing | `ua-parser-js` v2 |
+| Geo IP | MaxMind GeoLite2 (MMDB, mtime-based hot-reload) |
 | Validation | Zod v4 |
 | Web Vitals | `web-vitals` ESM (unpkg CDN, async) |
 | Deployment | Docker Compose + Caddy |
+| Testing | k6 (load), vitest + testcontainers (integration + security) |
 
 ---
 
@@ -188,59 +204,54 @@ Dark-first (`#0f0f0f` page background). All values are always-dark — no `dark:
 
 ### ClickHouse (Event Store)
 
-All high-volume event writes land in ClickHouse. Tables use the `MergeTree` family for fast time-range scans and low-overhead inserts.
+All high-volume event writes land in a single `analytics.events` table. The unified schema covers pageviews, custom events, performance metrics, and behavioral signals — discriminated by `event_type`.
 
 ```sql
--- High-volume pageview events
-CREATE TABLE page_views (
-  site_id      UUID,
-  session_id   String,       -- daily-rotating SHA-256 hash (cookieless)
-  pathname     String,
-  referrer     String,
-  country      FixedString(2),
-  device_type  LowCardinality(String),
-  browser      LowCardinality(String),
-  os           LowCardinality(String),
-  utm_source   String,
-  utm_medium   String,
-  utm_campaign String,
-  utm_term     String,
-  utm_content  String,
-  timestamp    DateTime64(3, 'UTC')
-) ENGINE = MergeTree()
-  PARTITION BY toYYYYMM(timestamp)
-  ORDER BY (site_id, timestamp);
+CREATE TABLE analytics.events
+(
+    timestamp    DateTime64(3, 'UTC'),
+    site_id      UUID,
+    event_type   LowCardinality(String),   -- 'pageview' | 'custom' | 'perf' | 'rage_click' | 'dead_click'
+    session_id   String,
+    visitor_hash String,                   -- SHA256(ip|ua|YYYY-MM-DD|salt), daily-rotating, no PII
+    pathname     String,
+    referrer     String,
+    country      LowCardinality(String),
+    browser      LowCardinality(String),
+    os           LowCardinality(String),
+    device       LowCardinality(String),
+    utm_source   String,
+    utm_medium   String,
+    utm_campaign String,
+    event_name   String,                   -- custom events only
+    revenue      Nullable(Float64),
+    currency     LowCardinality(String),
+    properties   String,                   -- JSON for custom event props
+    lcp          Nullable(Float64),
+    cls          Nullable(Float64),
+    inp          Nullable(Float64),
+    fcp          Nullable(Float64),
+    ttfb         Nullable(Float64)
+)
+ENGINE = MergeTree()
+PARTITION BY toYYYYMM(timestamp)
+ORDER BY (site_id, toDate(timestamp), session_id, timestamp)
+TTL toDateTime(timestamp) + INTERVAL 10 YEAR;
 
--- Custom events + revenue
-CREATE TABLE custom_events (
-  site_id    UUID,
-  session_id String,
-  name       String,
-  revenue    Decimal(12, 2),
-  currency   FixedString(3),
-  properties String,   -- JSON blob
-  pathname   String,
-  timestamp  DateTime64(3, 'UTC')
-) ENGINE = MergeTree()
-  PARTITION BY toYYYYMM(timestamp)
-  ORDER BY (site_id, timestamp);
-
--- Core Web Vitals + behavioral scores
-CREATE TABLE performance_metrics (
-  site_id     UUID,
-  session_id  String,
-  pathname    String,
-  lcp         Float32,
-  cls         Float32,
-  inp         Float32,
-  fcp         Float32,
-  ttfb        Float32,
-  rage_clicks UInt16,
-  dead_clicks UInt16,
-  timestamp   DateTime64(3, 'UTC')
-) ENGINE = MergeTree()
-  PARTITION BY toYYYYMM(timestamp)
-  ORDER BY (site_id, timestamp);
+-- Materialized view: daily unique visitor aggregates (powers fast summary queries)
+CREATE MATERIALIZED VIEW analytics.mv_daily_visitors
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(date)
+ORDER BY (site_id, date)
+AS SELECT
+    site_id,
+    toDate(timestamp)        AS date,
+    uniqState(visitor_hash)  AS visitors_state,
+    uniqState(session_id)    AS sessions_state,
+    countState()             AS pageviews_state
+FROM analytics.events
+WHERE event_type = 'pageview'
+GROUP BY site_id, date;
 ```
 
 ### PostgreSQL (Metadata & Billing)
@@ -250,13 +261,17 @@ Low-volume relational data — users, sites, subscriptions, and session identity
 ```
 user
   id, name, email, emailVerified
-  plan (free | pro)
+  plan (pro | null)
   polarCustomerId, polarSubscriptionId
   createdAt, updatedAt
 
 sites
   id (UUID), user_id, name, domain, created_at
   ls_webhook_secret, stripe_webhook_secret, polar_webhook_secret
+  ROW LEVEL SECURITY: sites_owner_isolation policy on user_id
+
+session
+  id, userId, token, expiresAt, createdAt, updatedAt, ipAddress, userAgent
 
 identified_sessions
   id (BIGSERIAL), site_id, session_id
@@ -272,10 +287,10 @@ Session identity is derived server-side — nothing is stored on the visitor's d
 
 **Daily-rotating SHA-256 hash**
 ```
-session_id = SHA256( ip_address + user_agent + YYYY-MM-DD + daily_salt )
+visitor_hash = SHA256( ip_address + user_agent + YYYY-MM-DD + VISITOR_HASH_SALT )
 ```
 
-- `daily_salt` is a secret rotated at midnight UTC, stored in the environment
+- `VISITOR_HASH_SALT` is a secret in the environment; rotate it to invalidate all historical linkage
 - The hash is truncated to 16 hex chars for storage efficiency
 - Because the salt rotates daily, two visits from the same person on different days produce different session IDs — cross-day linkage is impossible by design
 - IP is never written to the database; only the hash is stored
@@ -345,23 +360,39 @@ analytics.identify('user-123', { name: 'Alice', plan: 'pro' })
 | `*` | `/api/auth/polar/*` | Polar checkout, portal, webhooks |
 | `*` | `/api/auth/[...all]` | Better Auth session endpoints |
 
+### Cron (bearer-token auth via `CRON_SECRET`)
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/cron/weekly-digest` | Send weekly summary emails to all verified users |
+| `GET` | `/api/cron/refresh-geo` | Download latest GeoLite2 MMDB from MaxMind, atomic rename into place |
+
 ---
 
 ## Key Decisions
 
-**ClickHouse for events, Postgres for metadata** — All high-cardinality, time-series event data (pageviews, custom events, perf metrics) goes to ClickHouse (MergeTree). Low-volume relational data (users, sites, billing, identified sessions) stays in Postgres. This split keeps Postgres lean and ClickHouse queries fast at scale.
+**Unified ClickHouse events table** — All event types (pageview, custom, perf, behavioral) land in a single `analytics.events` table discriminated by `event_type`. Simplifies ingestion, enables cross-type queries, and avoids JOIN overhead. A materialized view pre-aggregates daily visitor counts for fast summary queries.
 
-**Cookieless SHA-256 session identity** — Session ID is derived from `IP + UA + date + daily_salt`, hashed server-side. Nothing is written to the browser. The daily rotation means visits cannot be linked across days, satisfying GDPR data-minimisation requirements without a consent banner.
+**ClickHouse for events, Postgres for metadata** — All high-cardinality, time-series event data goes to ClickHouse (MergeTree). Low-volume relational data (users, sites, billing, identified sessions) stays in Postgres. This split keeps Postgres lean and ClickHouse queries fast at scale.
+
+**Monthly usage counted in ClickHouse** — `getMonthlyEventCount` queries ClickHouse directly on each ingest request rather than incrementing a Postgres counter. Eliminates counter drift and avoids write amplification on every tracked event.
+
+**Cookieless SHA-256 session identity** — Session ID is derived from `IP + UA + date + VISITOR_HASH_SALT`, hashed server-side. Nothing is written to the browser. The daily rotation means visits cannot be linked across days, satisfying GDPR data-minimisation requirements without a consent banner.
 
 **sendBeacon over fetch** — Survives page unload without the `keepalive` hack. Falls back to fetch for old browsers.
 
-**Silent 204 on limit** — When a site exceeds 1M events/month, the tracking endpoint returns 204 with no error. The embed script doesn't retry, the user's site is unaffected, and data simply stops being recorded.
+**Silent 204 on limit** — When a site exceeds the monthly event quota, the tracking endpoint returns 204 with no error. The embed script doesn't retry, the user's site is unaffected, and data simply stops being recorded.
 
 **Polar + Better Auth adapter** — Billing integrated directly into the auth layer. Webhook handler at `/api/auth/polar/webhooks`. Polar customer `externalId` = Better Auth `user.id`.
 
 **SSE via ClickHouse polling** — Realtime uses 2-second ClickHouse polling. Clean abort via `request.signal`.
 
 **Server-side performance grading** — Grade thresholds computed in the route handler, not the client, so they can change without frontend deploys.
+
+**In-memory rate limiter** — Sliding-window per-IP counter in a `Map`. Suitable for single-node deployments; no Redis dependency. Eviction timer prevents unbounded memory growth.
+
+**MaxMind GeoLite2 mtime-based hot-reload** — The geo reader is cached with the MMDB file's `mtime`. When `refresh-geo` atomically replaces the file, the next request detects the changed mtime and reloads the reader — zero restart required.
+
+**CORS guard in proxy.ts** — Stats routes check the `Origin` header and reject cross-origin browser requests. Direct server-to-server calls (no `Origin`) pass through unaffected.
 
 **Webhook secrets write-only** — Integration secrets are stored per-site in DB. The GET endpoint returns only boolean `configured` flags — never the actual secret values.
 
@@ -370,14 +401,36 @@ analytics.identify('user-123', { name: 'Alice', plan: 'pro' })
 ## Environment Variables
 
 ```
-BETTER_AUTH_SECRET        # 32+ char random string
-NEXT_PUBLIC_APP_URL       # Public URL of the app
+# Auth
+BETTER_AUTH_SECRET        # 32+ char random string for session signing
+
+# App
+NEXT_PUBLIC_APP_URL       # Public URL (e.g. https://analytics.yourdomain.com)
+
+# Postgres
 DATABASE_URL              # Postgres connection string
-CLICKHOUSE_URL            # ClickHouse HTTP endpoint (e.g. http://localhost:8123)
-CLICKHOUSE_DB             # ClickHouse database name (default: analytics)
-CLICKHOUSE_USER           # ClickHouse username
-CLICKHOUSE_PASSWORD       # ClickHouse password
-DAILY_SALT_SECRET         # Secret mixed into cookieless session hash (rotate occasionally)
+
+# ClickHouse
+CLICKHOUSE_URL            # HTTP endpoint (e.g. http://localhost:8123)
+CLICKHOUSE_DB             # Database name (default: analytics)
+CLICKHOUSE_USER           # Username (default: default)
+CLICKHOUSE_PASSWORD       # Password
+
+# Tracking
+VISITOR_HASH_SALT         # Secret mixed into cookieless session hash (rotate to invalidate)
+
+# Geo IP
+MAXMIND_DB_PATH           # Path to GeoLite2-Country.mmdb (default: ./GeoLite2-Country.mmdb)
+MAXMIND_LICENSE_KEY       # MaxMind account license key (for refresh-geo cron)
+
+# Email
+RESEND_API_KEY            # Resend API key
+RESEND_FROM               # Sender address (default: noreply@example.com)
+
+# Cron
+CRON_SECRET               # Bearer token required by /api/cron/* endpoints
+
+# Billing (Polar)
 POLAR_ACCESS_TOKEN        # Polar API token
 POLAR_PRODUCT_ID          # Polar product ID for the $5/mo plan
 POLAR_WEBHOOK_SECRET      # Signing secret for Better Auth Polar webhook
@@ -390,38 +443,46 @@ POLAR_WEBHOOK_SECRET      # Signing secret for Better Auth Polar webhook
 - **Runtime**: Docker Compose (`app` + `db` + `clickhouse` services)
 - **Reverse proxy**: Caddy (automatic HTTPS)
 - **Target host**: Hetzner Bare Metal **AX162-S** (AMD Ryzen 9 7950X, 128GB RAM, 2×1.92TB NVMe) — sufficient headroom for ClickHouse MergeTree compaction and high-ingest workloads
-- **Schema**: Run `schema.sql` (Postgres) and `clickhouse/schema.sql` (ClickHouse) on first deploy and after migrations
 
 ### Setup
 ```bash
-# 1. Start all services (app + postgres + clickhouse)
+# 1. Start all services
 docker compose up -d
 
-# 2. Apply Postgres schema
+# 2. Apply schemas
 docker compose exec db psql -U postgres -d analytics -f /schema.sql
+docker compose exec clickhouse clickhouse-client --queries-file /docker-entrypoint-initdb.d/01-schema.sql
 
-# 3. Apply ClickHouse schema
-docker compose exec clickhouse clickhouse-client --query "$(cat clickhouse/schema.sql)"
+# 3. Seed demo data (optional)
+bun run scripts/seed-clickhouse.ts
 
-# 4. Install dependencies
-npm install
+# 4. Configure weekly digest cron (example: crontab or system scheduler)
+# 0 8 * * 1  curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron/weekly-digest
 
-# 5. Seed demo data (optional)
-node scripts/seed.mjs
-
-# 6. Start dev server
-npm run dev
+# 5. Configure geo refresh cron (example: monthly)
+# 0 3 1 * *  curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron/refresh-geo
 ```
 
 ---
 
-## Roadmap
+## Testing
 
-The following features are scoped and planned for upcoming sprints:
+Three-layer strategy — no mocks, all tests run against real containers.
 
-| Feature | Description | Status |
-|---|---|---|
-| **MaxMind GeoIP** | Replace header-based country detection with MaxMind GeoLite2 for accurate city/region-level geo, including fallback when CDN headers are absent | Planned |
-| **Redis rate limiting** | Per-IP and per-site sliding-window rate limiter on all `/api/track/*` endpoints using Redis + Lua scripts — protects ClickHouse from ingest spikes and abusive bots | Planned |
-| **API Key management** | Per-site API keys for server-side event ingestion (no embed script required); key creation, rotation, and revocation in the dashboard Settings tab | Planned |
-| **Weekly Digest emails** | Automated weekly summary email per site: top pages, total events, revenue delta vs prior week, top country. Sent every Monday via Resend/Nodemailer | Planned |
+### Load (k6)
+- `tests/load/ingestion.js` — ramps to 1,000 VUs across `/api/track` and `/api/track/event`
+- Thresholds: p99 < 100ms per request type, failure rate < 1%
+- `teardown()` verifies ClickHouse event count grew during the run
+- Run: `bun run test:load` (requires `brew install k6`)
+
+### Integration (vitest + testcontainers)
+- Spins up real `postgres:16-alpine` and `clickhouse/clickhouse-server:24.8` containers
+- Spawns `next dev` on port 3999 with `NEXT_DIST_DIR=.next-test` (avoids lock conflict with running dev server)
+- Full flow: ingest via HTTP → poll ClickHouse → assert stats API returns exact counts
+- Run: `bun run test:integration`
+
+### Security
+- **Site isolation**: user B accessing user A's stats → 404
+- **Rate limiting**: 121 concurrent requests from same IP → at least one 429 with `Retry-After`
+- **Plan limits**: 20k events pre-seeded via direct ClickHouse insert → next request returns 204; pro users unaffected
+- Covered by the same vitest integration suite

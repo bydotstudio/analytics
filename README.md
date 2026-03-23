@@ -20,6 +20,7 @@ Open source and self-hostable.
 - **UTM attribution** — first-touch and last-touch campaign attribution dashboard.
 - **Visitor journeys** — per-session step-by-step navigation history.
 - **Revenue webhooks** — auto-insert purchase events from Polar, Lemon Squeezy, and Stripe with no manual instrumentation.
+- **Weekly digest emails** — automated per-site summary sent every Monday via Resend.
 
 ---
 
@@ -41,8 +42,10 @@ One plan, no surprises.
 | UI | React + Tailwind CSS v4 |
 | Auth | Better Auth |
 | Billing | Polar + `@polar-sh/better-auth` adapter |
+| Email | Resend |
 | Event store | ClickHouse (MergeTree) |
 | Metadata / Billing DB | PostgreSQL |
+| Geo IP | MaxMind GeoLite2 (MMDB, hot-reload) |
 | Data fetching | TanStack Query v5 |
 | Deployment | Docker Compose + Caddy |
 
@@ -54,6 +57,7 @@ One plan, no surprises.
 
 - Docker & Docker Compose
 - A [Polar](https://polar.sh) account for billing (optional)
+- A [MaxMind](https://www.maxmind.com) account for GeoLite2 (optional, improves country detection)
 
 ### Setup
 
@@ -76,26 +80,40 @@ One plan, no surprises.
 4. Apply schemas:
    ```bash
    docker compose exec db psql -U postgres -d analytics -f /schema.sql
-   docker compose exec clickhouse clickhouse-client --query "$(cat clickhouse/schema.sql)"
+   docker compose exec clickhouse clickhouse-client --queries-file /docker-entrypoint-initdb.d/01-schema.sql
    ```
 
 5. (Optional) Seed demo data:
    ```bash
-   node scripts/seed.mjs
+   bun run scripts/seed-clickhouse.ts
+   ```
+
+6. Configure crons (weekly digest + geo refresh):
+   ```bash
+   # Weekly digest — every Monday at 8am
+   0 8 * * 1  curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron/weekly-digest
+
+   # GeoLite2 refresh — monthly
+   0 3 1 * *  curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain.com/api/cron/refresh-geo
    ```
 
 ### Environment variables
 
 | Variable | Description |
 |---|---|
-| `BETTER_AUTH_SECRET` | 32+ char random string for auth sessions |
+| `BETTER_AUTH_SECRET` | 32+ char random string for session signing |
 | `NEXT_PUBLIC_APP_URL` | Public URL of your deployment |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `CLICKHOUSE_URL` | ClickHouse HTTP endpoint (e.g. `http://localhost:8123`) |
 | `CLICKHOUSE_DB` | ClickHouse database name (default: `analytics`) |
 | `CLICKHOUSE_USER` | ClickHouse username |
 | `CLICKHOUSE_PASSWORD` | ClickHouse password |
-| `DAILY_SALT_SECRET` | Secret mixed into cookieless session hash |
+| `VISITOR_HASH_SALT` | Secret mixed into cookieless session hash (rotate to invalidate) |
+| `MAXMIND_DB_PATH` | Path to `GeoLite2-Country.mmdb` (default: `./GeoLite2-Country.mmdb`) |
+| `MAXMIND_LICENSE_KEY` | MaxMind license key (used by the geo refresh cron) |
+| `RESEND_API_KEY` | Resend API key (email verification, password reset, weekly digest) |
+| `RESEND_FROM` | Sender address (default: `noreply@example.com`) |
+| `CRON_SECRET` | Bearer token required by `/api/cron/*` endpoints |
 | `POLAR_ACCESS_TOKEN` | Polar API token (billing) |
 | `POLAR_PRODUCT_ID` | Polar product ID for the $5/mo plan |
 | `POLAR_WEBHOOK_SECRET` | Polar webhook signing secret |
