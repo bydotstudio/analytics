@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:integration": "vitest run --config vitest.config.ts",
+    "test:load": "k6 run tests/load/ingestion.js"
   },
   "dependencies": {
     "@clickhouse/client": "^1.18.2",
@@ -37,6 +39,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.94.5",
+    "@types/k6": "^1.6.0",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
@@ -46,8 +49,10 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
+    "testcontainers": "^11.13.0",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.0"
   },
   "ignoreScripts": [
     "sharp",
